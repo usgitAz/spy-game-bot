@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spy-game-bot"
+version = "0.1.0"
+description = "Spy Game Telegram Bot"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.16.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.ruff]
+force-exclude = true
+line-length = 88
+target-version = "py313"
+fix = false
+show-fixes = true
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "venv",
+    "env",
+    ".env",
+    "build",
+    "dist",
+    "*.pyc",
+    "migrations",
+    "tests",
+    ".direnv",
+    ".mypy_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "site-packages",
+]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "A", "D"]
+extend-select = ["D400", "D401", "D415", "D417"]
+ignore = [
+    "E501",
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    "D401",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+combine-as-imports = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "D100", "D101", "D102", "D103", "D104"]
+"**/__init__.py" = ["F403", "F811", "F401", "I001", "D104"]
+"app/main.py" = ["E402"]
