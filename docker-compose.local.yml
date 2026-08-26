@@ -1,0 +1,8 @@
+services:
+  bot:
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      TELEGRAM_PROXY: ${TELEGRAM_PROXY}

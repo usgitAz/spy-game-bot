@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: spybot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spybot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spybot}
+      POSTGRES_DB: ${POSTGRES_DB:-spybot}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spybot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - spybot_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: spybot_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - spybot_net
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spybot_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - spybot_net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  spybot_net:
+    driver: bridge

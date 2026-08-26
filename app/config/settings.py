@@ -5,9 +5,8 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_FILE = BASE_DIR / ".env"
-
 
 class Settings(BaseSettings):
     """Strongly typed application settings.
@@ -18,13 +17,16 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
     # Telegram
     bot_token: str
+
+    # Telegram proxy
+    telegram_proxy: str | None = None
 
     # PostgreSQL
     postgres_user: str = "spybot"
