@@ -1,8 +1,39 @@
 services:
+  postgres:
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+
+  redis:
+    ports:
+      - "6380:6379"
+
   bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: spybot_bot_dev
     env_file:
       - .env
+    environment:
+      TELEGRAM_PROXY: ${TELEGRAM_PROXY:-}
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      LOG_LEVEL: DEBUG
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    environment:
-      TELEGRAM_PROXY: ${TELEGRAM_PROXY}
+    volumes:
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "watchmedo auto-restart --directory=/app/app --pattern=*.py --recursive -- python -m app.main"
+
+volumes:
+  postgres_data_dev:
