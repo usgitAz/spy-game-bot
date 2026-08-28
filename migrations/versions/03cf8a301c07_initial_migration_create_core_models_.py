@@ -1,8 +1,8 @@
-"""initial migration: create core models
+"""initial migration: create core models with correct enum values
 
-Revision ID: b55c55ba4959
+Revision ID: 03cf8a301c07
 Revises: 
-Create Date: 2026-08-27 21:12:25.546433
+Create Date: 2026-08-28 20:33:37.549438
 """
 from typing import Sequence, Union
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'b55c55ba4959'
+revision: str = '03cf8a301c07'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -47,8 +47,8 @@ def upgrade() -> None:
     sa.Column('spies_count', sa.SmallInteger(), nullable=False),
     sa.Column('round_seconds', sa.Integer(), nullable=False),
     sa.Column('allow_two_spies', sa.Boolean(), nullable=False),
-    sa.Column('winner', sa.Enum('CITIZENS', 'SPY', name='game_winner'), nullable=True),
-    sa.Column('end_reason', sa.Enum('SPY_GUESSED_WORD', 'SPY_VOTED_OUT_WRONG_GUESS', 'SPY_VOTED_OUT_CORRECT_GUESS', 'CITIZEN_VOTED_OUT', 'CANCELLED', name='game_end_reason'), nullable=True),
+    sa.Column('winner', sa.Enum('citizens', 'spy', name='game_winner'), nullable=True),
+    sa.Column('end_reason', sa.Enum('spy_guessed_word', 'spy_voted_out_wrong_guess', 'spy_voted_out_correct_guess', 'citizen_voted_out', 'cancelled', name='game_end_reason'), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('ended_at', sa.DateTime(timezone=True), nullable=True),
@@ -62,7 +62,7 @@ def upgrade() -> None:
     sa.Column('game_id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.BigInteger(), nullable=False),
     sa.Column('display_name', sa.String(length=256), nullable=False),
-    sa.Column('role', sa.Enum('CITIZEN', 'SPY', name='player_role'), nullable=False),
+    sa.Column('role', sa.Enum('citizen', 'spy', name='player_role'), nullable=False),
     sa.Column('is_creator', sa.Boolean(), nullable=False),
     sa.Column('votes_received', sa.Integer(), server_default='0', nullable=False),
     sa.Column('was_eliminated', sa.Boolean(), nullable=False),

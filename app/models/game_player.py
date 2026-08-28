@@ -1,4 +1,5 @@
 """Persistent record of a single player's participation in one game."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -44,7 +45,12 @@ class GamePlayer(Base):
     # still reads correctly even if the user later changes their name.
     display_name: Mapped[str] = mapped_column(String(256))
     role: Mapped[PlayerRole] = mapped_column(
-        Enum(PlayerRole, name="player_role", native_enum=True)
+        Enum(
+            PlayerRole,
+            name="player_role",
+            native_enum=True,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        )
     )
     is_creator: Mapped[bool] = mapped_column(Boolean, default=False)
     votes_received: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

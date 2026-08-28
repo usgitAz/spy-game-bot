@@ -48,10 +48,22 @@ class Game(Base):
     round_seconds: Mapped[int] = mapped_column(Integer)
     allow_two_spies: Mapped[bool] = mapped_column(Boolean, default=False)
     winner: Mapped[GameWinner | None] = mapped_column(
-        Enum(GameWinner, name="game_winner", native_enum=True), nullable=True
+        Enum(
+            GameWinner,
+            name="game_winner",
+            native_enum=True,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=True,
     )
     end_reason: Mapped[GameEndReason | None] = mapped_column(
-        Enum(GameEndReason, name="game_end_reason", native_enum=True), nullable=True
+        Enum(
+            GameEndReason,
+            name="game_end_reason",
+            native_enum=True,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
