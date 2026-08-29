@@ -65,11 +65,15 @@ class GameStateRepository:
             lua_scripts.CREATE_GAME
         )
         self._join_script: AsyncScript = redis.register_script(lua_scripts.JOIN_GAME)
-        self._leave_script: AsyncScript = redis.register_script(lua_scripts.LEAVE_GAME)
+        self._leave_script: AsyncScript = redis.register_script(
+            lua_scripts.LEAVE_GAME
+        )
         self._delete_script: AsyncScript = redis.register_script(
             lua_scripts.DELETE_GAME
         )
-        self._vote_script: AsyncScript = redis.register_script(lua_scripts.RECORD_VOTE)
+        self._vote_script: AsyncScript = redis.register_script(
+            lua_scripts.RECORD_VOTE
+        )
 
     # Creation / deletion
 
@@ -248,11 +252,7 @@ class GameStateRepository:
         await self._redis.hset(redis_keys.meta_key(chat_id), "status", status.value)
 
     async def set_message_id(
-        self,
-        chat_id: int,
-        *,
-        lobby_message_id: int | None = None,
-        game_message_id: int | None = None,
+        self, chat_id: int, *, lobby_message_id: int | None = None, game_message_id: int | None = None
     ) -> None:
         mapping: dict[str, str] = {}
         if lobby_message_id is not None:
@@ -262,9 +262,7 @@ class GameStateRepository:
         if mapping:
             await self._redis.hset(redis_keys.meta_key(chat_id), mapping=mapping)
 
-    async def set_player_roles(
-        self, chat_id: int, roles: dict[int, PlayerState]
-    ) -> None:
+    async def set_player_roles(self, chat_id: int, roles: dict[int, PlayerState]) -> None:
         """Overwrite full player records after role assignment at game start."""
         mapping = {
             str(user_id): player.model_dump_json() for user_id, player in roles.items()
@@ -302,8 +300,7 @@ class GameStateRepository:
         order = await self._redis.lrange(redis_keys.order_key(chat_id), 0, -1)
         players_raw = await self._redis.hgetall(redis_keys.players_key(chat_id))
         players_by_id = {
-            uid: PlayerState.model_validate_json(raw)
-            for uid, raw in players_raw.items()
+            uid: PlayerState.model_validate_json(raw) for uid, raw in players_raw.items()
         }
         # Preserve join order; fall back to hash iteration for any stragglers
         # (shouldn't happen, but keeps reads defensive against partial writes).
