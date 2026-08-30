@@ -22,8 +22,7 @@ root_router = Router(name="root")
 async def handle_start(message: Message) -> None:
     """Confirm the bot is wired up correctly with a basic health-check."""
     await message.answer(
-        "ربات جاسوس آماده است ✅\n"
-        "این نسخه فعلاً فقط زیرساخت (مرحله ۱) را نشان می‌دهد."
+        "ربات جاسوس آماده است ✅\nاین نسخه فعلاً فقط زیرساخت (مرحله ۱) را نشان می‌دهد."
     )
 
 

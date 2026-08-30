@@ -7,12 +7,27 @@ name = "spy-game-bot"
 version = "0.1.0"
 description = "Spy Game Telegram Bot"
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "aiogram>=3.30.0",
+    "aiohttp>=3.14.0",
+    "aiofiles>=25.1.0",
+    "aiohttp-socks>=0.12.0",
+    "python-socks>=3.0.0",
+    "pydantic>=2.13.0",
+    "pydantic-settings>=2.15.0",
+    "SQLAlchemy>=2.0.52",
+    "asyncpg>=0.31.0",
+    "alembic>=1.19.0",
+    "redis>=8.1.0",
+    "python-dotenv>=1.2.0",
+    "structlog>=26.1.0",
+]
 
 [project.optional-dependencies]
 dev = [
     "ruff>=0.16.4",
+    "pre-commit>=4.6.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -22,7 +37,7 @@ include = ["app*"]
 [tool.ruff]
 force-exclude = true
 line-length = 88
-target-version = "py313"
+target-version = "py312"
 fix = false
 show-fixes = true
 exclude = [

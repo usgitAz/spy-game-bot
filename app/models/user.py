@@ -1,4 +1,5 @@
 """Persistent Telegram user profile and lifetime statistics."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -36,9 +37,7 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    game_participations: Mapped[list[GamePlayer]] = relationship(
-        back_populates="user"
-    )
+    game_participations: Mapped[list[GamePlayer]] = relationship(back_populates="user")
 
     def __repr__(self) -> str:
         return f"<User id={self.telegram_id} username={self.username!r}>"

@@ -5,7 +5,6 @@ timers, and votes survive bot restarts and can be shared safely across
 concurrent updates for multiple groups.
 """
 
-
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -16,7 +15,7 @@ from app.config.settings import Settings
 
 
 def create_bot(settings: Settings) -> Bot:
-    proxy = settings.telegram_proxy  or None
+    proxy = settings.telegram_proxy or None
     session = AiohttpSession(proxy=proxy)
 
     return Bot(

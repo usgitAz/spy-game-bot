@@ -75,7 +75,7 @@ venv.bak/
 dist/
 build/
 
-#editor 
+#editor
 .idea/
 .vscode/
 *.swp

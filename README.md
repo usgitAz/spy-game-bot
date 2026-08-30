@@ -1,2 +1,2 @@
 # spy-game-bot
-spy game bot on telegram bot 
+spy game bot on telegram bot

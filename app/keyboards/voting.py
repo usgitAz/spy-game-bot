@@ -7,7 +7,9 @@ from app.domain.game_state import PlayerState
 from app.keyboards.callback_data import VoteCallback
 
 
-def build_voting_keyboard(chat_id: int, players: list[PlayerState]) -> InlineKeyboardMarkup:
+def build_voting_keyboard(
+    chat_id: int, players: list[PlayerState]
+) -> InlineKeyboardMarkup:
     """Render one button per player who can be voted for.
 
     Every player (including the spy) can vote, and every player is a

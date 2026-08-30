@@ -40,9 +40,7 @@ def build_settings_keyboard(
 
     # Row 2: two-spy toggle.
     toggle_label = (
-        "☑️ امکان دو جاسوس (۷+ نفر)"
-        if allow_two_spies
-        else "⬜️ امکان دو جاسوس (۷+ نفر)"
+        "☑️ امکان دو جاسوس (۷+ نفر)" if allow_two_spies else "⬜️ امکان دو جاسوس (۷+ نفر)"
     )
     builder.button(
         text=toggle_label,

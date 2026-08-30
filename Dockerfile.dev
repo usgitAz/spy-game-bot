@@ -12,14 +12,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /venv
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir watchdog ipython
+COPY requirements-dev.txt .
+RUN pip install --no-cache-dir -r requirements-dev.txt \
+    && pip install --no-cache-dir watchdog
 
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini .
 
-USER root
 
 CMD ["python", "-m", "app.main"]

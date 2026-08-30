@@ -1,4 +1,5 @@
 """Persistent record of a Telegram group chat using the bot."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -21,7 +22,9 @@ class Group(Base):
     chat_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     title: Mapped[str | None] = mapped_column(String(256), nullable=True)
     # Flipped to False if the bot is removed from the group (my_chat_member update).
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
