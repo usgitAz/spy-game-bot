@@ -8,21 +8,23 @@ from aiogram.types import Message
 
 from app.bot.bootstrap import create_bot, create_dispatcher
 from app.config.settings import get_settings
+from app.handlers.create_game import router as create_game_router
+from app.repositories.game_state_repository import GameStateRepository
 from app.utils.db import dispose_engine, get_engine
 from app.utils.logging import configure_logging, get_logger
 from app.utils.redis_client import close_redis, get_redis
 
 logger = get_logger(__name__)
 
-# Temporary placeholder router — real game handlers are added in later steps.
 root_router = Router(name="root")
 
 
 @root_router.message(CommandStart())
 async def handle_start(message: Message) -> None:
-    """Confirm the bot is wired up correctly with a basic health-check."""
+    """Basic health-check handler, confirming the bot is wired up correctly."""
     await message.answer(
-        "ربات جاسوس آماده است ✅\nاین نسخه فعلاً فقط زیرساخت (مرحله ۱) را نشان می‌دهد."
+        "ربات جاسوس آماده است ✅\n"
+        "برای ساخت بازی جدید در یک گروه، دستور /newgame را بزنید."
     )
 
 
@@ -53,7 +55,13 @@ async def main() -> None:
 
     bot = create_bot(settings)
     dispatcher = create_dispatcher(settings)
+
+    # Shared, process-wide repository instance injected into every handler
+    # that declares a repo: GameStateRepository parameter.
+    dispatcher["repo"] = GameStateRepository(get_redis())
+
     dispatcher.include_router(root_router)
+    dispatcher.include_router(create_game_router)
 
     dispatcher.startup.register(on_startup)
     dispatcher.shutdown.register(on_shutdown)

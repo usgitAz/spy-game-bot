@@ -1,6 +1,7 @@
 """Async Redis client singleton used for game state, lobby, timers, and votes."""
 
 from redis.asyncio import Redis
+from redis.maint_notifications import MaintNotificationsConfig
 
 from app.config.settings import get_settings
 
@@ -15,6 +16,7 @@ def get_redis() -> Redis:
         _redis_client = Redis.from_url(
             settings.redis_dsn,
             decode_responses=True,
+            maint_notifications_config=MaintNotificationsConfig(enabled=False),
         )
     return _redis_client
 
