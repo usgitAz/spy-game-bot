@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir -r requirements-dev.txt \
     && pip install --no-cache-dir watchdog
 
 COPY app ./app
+COPY data ./data
 COPY migrations ./migrations
 COPY alembic.ini .
 

@@ -9,6 +9,7 @@ from aiogram.types import Message
 from app.bot.bootstrap import create_bot, create_dispatcher
 from app.config.settings import get_settings
 from app.handlers.create_game import router as create_game_router
+from app.handlers.game import router as game_router
 from app.handlers.lobby import router as lobby_router
 from app.repositories.game_state_repository import GameStateRepository
 from app.utils.db import dispose_engine, get_engine
@@ -64,6 +65,7 @@ async def main() -> None:
     dispatcher.include_router(root_router)
     dispatcher.include_router(create_game_router)
     dispatcher.include_router(lobby_router)
+    dispatcher.include_router(game_router)
 
     dispatcher.startup.register(on_startup)
     dispatcher.shutdown.register(on_shutdown)

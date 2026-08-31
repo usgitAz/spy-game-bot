@@ -7,8 +7,12 @@ from aiogram.types import CallbackQuery
 
 from app.config.settings import get_settings
 from app.constants import GAME_RULES_TEXT
-from app.domain.game_state import GameStatus
-from app.keyboards import LobbyAction, LobbyCallback, build_lobby_keyboard
+from app.keyboards import (
+    LobbyAction,
+    LobbyCallback,
+    build_game_keyboard,
+    build_lobby_keyboard,
+)
 from app.repositories.game_state_repository import (
     AlreadyJoinedError,
     CreatorCannotLeaveError,
@@ -19,7 +23,14 @@ from app.repositories.game_state_repository import (
     NotAuthorizedError,
     NotInLobbyError,
 )
-from app.utils.formatting import build_lobby_message_text
+from app.services.game_start_service import (
+    NotCreatorError,
+    NotEnoughPlayersError,
+    NotInLobbyError as GameStartNotInLobbyError,
+    start_game,
+)
+from app.services.round_timer_service import start_round_timer
+from app.utils.formatting import build_game_message_text, build_lobby_message_text
 from app.utils.logging import get_logger
 from app.utils.telegram_helpers import safe_edit_text
 
@@ -138,33 +149,47 @@ async def _handle_start(
     callback: CallbackQuery, callback_data: LobbyCallback, repo: GameStateRepository
 ) -> None:
     settings = get_settings()
-    game = await repo.get_game(callback_data.chat_id)
-
-    if game is None:
-        await callback.answer("این بازی دیگر وجود ندارد.", show_alert=True)
+    try:
+        game = await start_game(
+            repo,
+            chat_id=callback_data.chat_id,
+            requester_id=callback.from_user.id,
+            min_players=settings.min_players,
+        )
+    except GameStartNotInLobbyError:
+        await callback.answer("این بازی دیگر در مرحله‌ی لابی نیست.", show_alert=True)
         return
-    if game.status != GameStatus.LOBBY:
-        await callback.answer("بازی از قبل شروع شده است.", show_alert=True)
-        return
-    if callback.from_user.id != game.creator_id:
+    except NotCreatorError:
         await callback.answer(
             "فقط سازنده‌ی بازی می‌تواند بازی را شروع کند.", show_alert=True
         )
         return
-    if game.player_count < settings.min_players:
+    except NotEnoughPlayersError as exc:
         await callback.answer(
-            f"برای شروع بازی حداقل {settings.min_players} نفر لازم است "
-            f"(در حال حاضر {game.player_count} نفر).",
+            f"برای شروع بازی حداقل {exc.required} نفر لازم است "
+            f"(در حال حاضر {exc.current} نفر).",
             show_alert=True,
         )
         return
 
-    # Role assignment, word selection, and the round timer are the next
-    # step -- this only validates that starting is currently allowed.
-    await callback.answer(
-        "✅ شرایط شروع بازی فراهم است. (شروع واقعی بازی در مرحله بعد اضافه می‌شود)",
-        show_alert=True,
+    assert callback.message is not None
+    text = build_game_message_text(game)
+    keyboard = build_game_keyboard(callback_data.chat_id)
+    await safe_edit_text(callback.message, text, keyboard)
+    await repo.set_message_id(
+        callback_data.chat_id, game_message_id=callback.message.message_id
     )
+    await callback.answer("🚀 بازی شروع شد!")
+
+    # Arm the round timer so voting starts automatically when time is up.
+    if game.ends_at is not None:
+        start_round_timer(
+            callback.bot,
+            repo,
+            callback_data.chat_id,
+            game.ends_at,
+            callback.message.message_id,
+        )
 
 
 _ActionHandler = Callable[
