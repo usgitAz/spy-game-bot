@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     max_round_minutes: int = 10
     lobby_timeout_seconds: int = 120
 
+    # Safety-net TTL applied to a game's Redis keys so a crashed bot
+    # doesn't leave orphaned state forever. This is intentionally much
+    # longer than `lobby_timeout_seconds` (which is a business rule
+    # enforced by an application-level timer, not by Redis expiry) so it
+    # never cuts off a game that's still legitimately in progress.
+    redis_game_ttl_seconds: int = 3600
+
     # Logging
     log_level: str = "INFO"
 

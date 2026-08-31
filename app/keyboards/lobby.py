@@ -6,15 +6,12 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from app.keyboards.callback_data import LobbyAction, LobbyCallback
 
 
-def build_lobby_keyboard(chat_id: int, *, show_start: bool) -> InlineKeyboardMarkup:
+def build_lobby_keyboard(chat_id: int) -> InlineKeyboardMarkup:
     """Render the lobby panel.
 
-    Args:
-        chat_id: The group chat this lobby belongs to.
-        show_start: Whether to show the "شروع بازی" button. The handler
-            decides this (e.g. only once the minimum player count is met),
-            keeping that business rule out of the keyboard layer.
-
+    The "شروع بازی" button is always shown (better UX than hiding it);
+    if there aren't enough players yet, the handler responds to the tap
+    with an alert instead of silently doing nothing.
     """
     builder = InlineKeyboardBuilder()
 
@@ -34,14 +31,10 @@ def build_lobby_keyboard(chat_id: int, *, show_start: bool) -> InlineKeyboardMar
         text="📜 قوانین بازی",
         callback_data=LobbyCallback(chat_id=chat_id, action=LobbyAction.RULES),
     )
-
-    if show_start:
-        builder.button(
-            text="🚀 شروع بازی",
-            callback_data=LobbyCallback(chat_id=chat_id, action=LobbyAction.START),
-        )
-        builder.adjust(2, 2, 1)
-    else:
-        builder.adjust(2, 2)
+    builder.button(
+        text="🚀 شروع بازی",
+        callback_data=LobbyCallback(chat_id=chat_id, action=LobbyAction.START),
+    )
+    builder.adjust(2, 2, 1)
 
     return builder.as_markup()

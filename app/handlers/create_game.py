@@ -1,5 +1,4 @@
-"""Handlers for creating a new game: the /newgame command and the.
-
+"""Handlers for creating a new game: the /newgame command and the
 pre-game settings panel (round time + two-spy toggle + confirm/cancel).
 """
 
@@ -21,6 +20,7 @@ from app.repositories.game_state_repository import (
     GameStateRepository,
 )
 from app.services.game_creation_service import create_new_game
+from app.services.lobby_timeout_service import start_lobby_timeout
 from app.utils.formatting import build_lobby_message_text
 from app.utils.logging import get_logger
 
@@ -127,7 +127,7 @@ async def _confirm_and_create_game(
             creator_id=callback.from_user.id,
             creator_name=creator_name,
             settings=game_settings,
-            ttl_seconds=settings.lobby_timeout_seconds,
+            ttl_seconds=settings.redis_game_ttl_seconds,
         )
     except GameAlreadyExistsError:
         # Someone else's /newgame won the race between this panel opening
@@ -151,8 +151,13 @@ async def _confirm_and_create_game(
         allow_two_spies=game_settings.allow_two_spies,
     )
 
+    # Close the settings panel, open the lobby panel in its place.
     text = build_lobby_message_text(game)
-    keyboard = build_lobby_keyboard(chat_id, show_start=False)
+    keyboard = build_lobby_keyboard(chat_id)
     sent = await callback.message.edit_text(text, reply_markup=keyboard)
     await repo.set_message_id(chat_id, lobby_message_id=sent.message_id)
     await callback.answer("✅ بازی ساخته شد!")
+
+    # Auto-delete this lobby if it never gets started within the configured
+    # window (see app.services.lobby_timeout_service).
+    start_lobby_timeout(callback.bot, repo, chat_id, settings.lobby_timeout_seconds)
