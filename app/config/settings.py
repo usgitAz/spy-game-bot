@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     spy_threshold_players: int = 7
     min_round_minutes: int = 3
     max_round_minutes: int = 10
-    lobby_timeout_seconds: int = 120
+    lobby_timeout_seconds: int = 300
 
     # Safety-net TTL applied to a game's Redis keys so a crashed bot
     # doesn't leave orphaned state forever. This is intentionally much

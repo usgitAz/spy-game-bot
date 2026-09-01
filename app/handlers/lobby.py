@@ -173,12 +173,20 @@ async def _handle_start(
         return
 
     assert callback.message is not None
+
+    # Delete the lobby panel and post a *new* "see my role" panel at the
+    # bottom of the chat so players do not have to scroll up.
+    try:
+        await callback.message.delete()
+    except Exception:  # noqa: BLE001 — already gone / no permission
+        pass
+
     text = build_game_message_text(game)
     keyboard = build_game_keyboard(callback_data.chat_id)
-    await safe_edit_text(callback.message, text, keyboard)
-    await repo.set_message_id(
-        callback_data.chat_id, game_message_id=callback.message.message_id
+    sent = await callback.bot.send_message(
+        callback_data.chat_id, text, reply_markup=keyboard
     )
+    await repo.set_message_id(callback_data.chat_id, game_message_id=sent.message_id)
     await callback.answer("🚀 بازی شروع شد!")
 
     # Arm the round timer so voting starts automatically when time is up.
@@ -188,7 +196,7 @@ async def _handle_start(
             repo,
             callback_data.chat_id,
             game.ends_at,
-            callback.message.message_id,
+            sent.message_id,
         )
 
 

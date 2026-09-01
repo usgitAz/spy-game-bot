@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 # tasks).
 _background_tasks: set[asyncio.Task] = set()
 
-NOTICE_TEXT = "⏰ بازی به علت شروع نشدن پس از دو دقیقه، به‌صورت خودکار حذف شد."
+NOTICE_TEXT = "⏰ بازی به علت شروع نشدن پس از پنج دقیقه، به‌صورت خودکار حذف شد."
 NOTICE_LIFETIME_SECONDS = 60
 
 
