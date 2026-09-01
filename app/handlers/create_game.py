@@ -151,10 +151,16 @@ async def _confirm_and_create_game(
         allow_two_spies=game_settings.allow_two_spies,
     )
 
-    # Close the settings panel, open the lobby panel in its place.
+    # Close the settings panel and post a *new* lobby message at the
+    # bottom of the chat so players do not have to scroll up to join.
+    try:
+        await callback.message.delete()
+    except Exception:  # noqa: BLE001 — message may already be gone
+        pass
+
     text = build_lobby_message_text(game)
     keyboard = build_lobby_keyboard(chat_id)
-    sent = await callback.message.edit_text(text, reply_markup=keyboard)
+    sent = await callback.bot.send_message(chat_id, text, reply_markup=keyboard)
     await repo.set_message_id(chat_id, lobby_message_id=sent.message_id)
     await callback.answer("✅ بازی ساخته شد!")
 

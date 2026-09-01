@@ -4,10 +4,16 @@ The bot's default parse mode is HTML (see `app.bot.bootstrap`), so all
 message text built here uses HTML tags/entities.
 """
 
+from __future__ import annotations
+
 import html
 import time
+from typing import TYPE_CHECKING
 
 from app.domain.game_state import GameState
+
+if TYPE_CHECKING:
+    from app.models.enums import GameEndReason, GameWinner
 
 
 def user_mention(user_id: int, display_name: str) -> str:
@@ -91,3 +97,48 @@ def role_reveal_text(*, is_spy: bool, word: str | None) -> str:
         f"کلمه مخفی: {word or '???'}\n\n"
         "با بقیه همکاری کنید تا جاسوس را پیدا کنید."
     )
+
+
+def build_game_over_text(
+    game: GameState,
+    *,
+    winner: GameWinner,
+    reason: GameEndReason,
+) -> str:
+    """Public announcement when a game finishes."""
+    from app.models.enums import GameEndReason, GameWinner
+
+    spy_names = (
+        ", ".join(user_mention(p.user_id, p.display_name) for p in game.spies) or "—"
+    )
+    word = html.escape(game.word or "???")
+
+    if winner == GameWinner.SPY:
+        if reason == GameEndReason.SPY_GUESSED_WORD:
+            headline = "🕵️ <b>جاسوس(ها) برنده شدند!</b>"
+            detail = "جاسوس کلمه را درست حدس زد."
+        elif reason == GameEndReason.CITIZEN_VOTED_OUT:
+            headline = "🕵️ <b>جاسوس(ها) برنده شدند!</b>"
+            detail = "یک شهروند به‌اشتباه رای آورد و اخراج شد."
+        elif reason == GameEndReason.SPY_VOTED_OUT_CORRECT_GUESS:
+            headline = "🕵️ <b>جاسوس(ها) برنده شدند!</b>"
+            detail = "جاسوس رای آورد ولی در حدس نهایی کلمه را درست گفت."
+        else:
+            headline = "🕵️ <b>جاسوس(ها) برنده شدند!</b>"
+            detail = ""
+    else:
+        if reason == GameEndReason.SPY_VOTED_OUT_WRONG_GUESS:
+            headline = "👥 <b>شهروندان برنده شدند!</b>"
+            detail = "جاسوس رای آورد و نتوانست کلمه را حدس بزند."
+        else:
+            headline = "👥 <b>شهروندان برنده شدند!</b>"
+            detail = ""
+
+    lines = [
+        headline,
+        "",
+        detail,
+        f"🔤 کلمه: <b>{word}</b>",
+        f"🕵️ جاسوس(ها): {spy_names}",
+    ]
+    return "\n".join(line for line in lines if line is not None)
