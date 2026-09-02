@@ -311,6 +311,36 @@ class GameStateRepository:
         )
         await self.clear_votes(chat_id)
 
+    async def list_active_chat_ids(self) -> list[int]:
+        """Scan Redis for every chat that currently has a live game meta key."""
+        chat_ids: list[int] = []
+        async for key in self._redis.scan_iter(match="spy:game:*:meta", count=100):
+            # key format: spy:game:{chat_id}:meta
+            parts = key.split(":")
+            if len(parts) >= 3 and parts[2].lstrip("-").isdigit():
+                chat_ids.append(int(parts[2]))
+        return chat_ids
+
+    async def set_voting_deadline(self, chat_id: int, voting_ends_at: float) -> None:
+        await self._redis.hset(
+            redis_keys.meta_key(chat_id),
+            mapping={
+                "status": GameStatus.VOTING.value,
+                "voting_ends_at": repr(voting_ends_at),
+            },
+        )
+
+    async def set_final_guess_deadline(
+        self, chat_id: int, final_guess_ends_at: float
+    ) -> None:
+        await self._redis.hset(
+            redis_keys.meta_key(chat_id),
+            mapping={
+                "status": GameStatus.AWAITING_FINAL_GUESS.value,
+                "final_guess_ends_at": repr(final_guess_ends_at),
+            },
+        )
+
     # Reads
 
     async def get_game(self, chat_id: int) -> GameState | None:
@@ -349,6 +379,8 @@ class GameStateRepository:
             created_at=float(meta["created_at"]),
             started_at=_optional_float(meta.get("started_at", "")),
             ends_at=_optional_float(meta.get("ends_at", "")),
+            voting_ends_at=_optional_float(meta.get("voting_ends_at", "")),
+            final_guess_ends_at=_optional_float(meta.get("final_guess_ends_at", "")),
             lobby_message_id=_optional_int(meta.get("lobby_message_id", "")),
             game_message_id=_optional_int(meta.get("game_message_id", "")),
             voting_round=int(meta["voting_round"]) if meta.get("voting_round") else 1,

@@ -40,6 +40,11 @@ async def handle_vote(
         )
         return
 
+    # Players cannot vote for themselves.
+    if voter_id == target_id:
+        await callback.answer("نمی‌توانید به خودتان رای بدهید.", show_alert=True)
+        return
+
     target = game.get_player(target_id)
     if target is None or target.eliminated or target.left_mid_game:
         await callback.answer("این بازیکن دیگر هدف معتبری نیست.", show_alert=True)

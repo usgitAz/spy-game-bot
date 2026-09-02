@@ -17,6 +17,7 @@ import time
 
 from aiogram import Bot
 
+from app.config.settings import get_settings
 from app.domain.game_state import GameStatus
 from app.keyboards import build_voting_keyboard
 from app.repositories.game_state_repository import GameStateRepository
@@ -60,7 +61,8 @@ async def _round_timer_worker(
             # Already moved on (spy guessed early, game deleted, …).
             return
 
-        await repo.set_status(chat_id, GameStatus.VOTING)
+        voting_ends = time.time() + get_settings().voting_timeout_seconds
+        await repo.set_voting_deadline(chat_id, voting_ends)
         game = await repo.get_game(chat_id)
         assert game is not None
 

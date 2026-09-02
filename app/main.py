@@ -8,12 +8,14 @@ from aiogram.types import Message
 
 from app.bot.bootstrap import create_bot, create_dispatcher
 from app.config.settings import get_settings
+from app.handlers.admin import router as admin_router
 from app.handlers.create_game import router as create_game_router
 from app.handlers.game import router as game_router
 from app.handlers.lobby import router as lobby_router
 from app.handlers.spy_guess import router as spy_guess_router
 from app.handlers.voting import router as voting_router
 from app.repositories.game_state_repository import GameStateRepository
+from app.services.game_recovery_service import start_game_recovery_sweeper
 from app.utils.db import dispose_engine, get_engine
 from app.utils.logging import configure_logging, get_logger
 from app.utils.redis_client import close_redis, get_redis
@@ -68,11 +70,17 @@ async def main() -> None:
     dispatcher.include_router(create_game_router)
     dispatcher.include_router(lobby_router)
     dispatcher.include_router(game_router)
-    dispatcher.include_router(spy_guess_router)
+    dispatcher.include_router(
+        admin_router
+    )  # before spy_guess so /commands are not swallowed
     dispatcher.include_router(voting_router)
+    dispatcher.include_router(spy_guess_router)
 
     dispatcher.startup.register(on_startup)
     dispatcher.shutdown.register(on_shutdown)
+
+    # Redis-backed timer recovery (survives process restarts).
+    start_game_recovery_sweeper(bot, GameStateRepository(get_redis()))
 
     logger.info("bot_starting")
     await bot.delete_webhook(drop_pending_updates=True)

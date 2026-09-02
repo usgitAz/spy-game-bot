@@ -18,11 +18,16 @@ router = Router(name="spy_guess")
 @router.message(
     F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}),
     F.text,
+    ~F.text.startswith("/"),
 )
 async def handle_possible_spy_guess(
     message: Message, repo: GameStateRepository
 ) -> None:
-    """Handle exact word guesses during RUNNING or AWAITING_FINAL_GUESS."""
+    """Handle exact word guesses during RUNNING or AWAITING_FINAL_GUESS.
+
+    Commands (messages starting with ``/``) are intentionally ignored so
+    they can be handled by dedicated command routers (e.g. admin).
+    """
     if message.from_user is None or not message.text:
         return
 

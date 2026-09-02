@@ -64,8 +64,13 @@ class GameState(BaseModel):
     created_at: float
     started_at: float | None = None
     ends_at: float | None = None
+    voting_ends_at: float | None = None
+    final_guess_ends_at: float | None = None
     lobby_message_id: int | None = None
     game_message_id: int | None = None
+    voting_round: int = 1
+    # When set, only these user_ids are valid vote targets (runoff).
+    vote_candidate_ids: list[int] | None = None
     players: list[PlayerState] = Field(default_factory=list)
 
     @property

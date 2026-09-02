@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import time
 from collections import Counter
 from dataclasses import dataclass
 
 from aiogram import Bot
 
+from app.config.settings import get_settings
 from app.domain.game_state import GameState, GameStatus, PlayerState
 from app.keyboards import build_voting_keyboard
 from app.models.enums import GameEndReason, GameWinner, PlayerRole
@@ -137,6 +139,8 @@ async def _start_runoff(
     names = ", ".join(user_mention(p.user_id, p.display_name) for p in tied_players)
 
     await repo.set_vote_runoff(chat_id, round_number=2, candidate_ids=tied_ids)
+    voting_ends = time.time() + get_settings().voting_timeout_seconds
+    await repo.set_voting_deadline(chat_id, voting_ends)
 
     try:
         await bot.send_message(
@@ -191,9 +195,7 @@ async def _apply_elimination(
     if eliminated.role != PlayerRole.SPY:
         try:
             await bot.send_message(
-                chat_id,
-                f"❌ {elim_mention} با بیشترین رای اخراج شد، اما شهروند بود.\n"
-                "🕵️ جاسوس(ها) برنده شدند!",
+                chat_id, f"❌ {elim_mention} با بیشترین رای اخراج شد، اما شهروند بود."
             )
         except Exception:  # noqa: BLE001
             pass
