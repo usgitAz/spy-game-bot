@@ -65,18 +65,38 @@ def build_game_message_text(game: GameState) -> str:
     return "\n".join(lines)
 
 
-def build_voting_message_text(game: GameState) -> str:
+def build_voting_message_text(game: GameState, *, runoff: bool = False) -> str:
     """Render the voting-panel body after the round timer expires."""
     lines = [
-        "🗳 <b>زمان رای‌گیری</b>",
+        "🗳 <b>دور دوم رای‌گیری</b>" if runoff else "🗳 <b>زمان رای‌گیری</b>",
         "",
-        "وقت بحث تمام شد. به کسی که فکر می‌کنید جاسوس است رای بدهید.",
+        (
+            "فقط بین نفراتی که رای مساوی داشتند رای بدهید."
+            if runoff
+            else "وقت بحث تمام شد. به کسی که فکر می‌کنید جاسوس است رای بدهید."
+        ),
+        "هر نفر فقط یک رای دارد. مهلت رای‌گیری: <b>۱ دقیقه</b>.",
         "",
         "👥 <b>بازیکنان فعال:</b>",
     ]
     active = [p for p in game.players if not p.eliminated and not p.left_mid_game]
     for i, p in enumerate(active, start=1):
         lines.append(f"{i}. {user_mention(p.user_id, p.display_name)}")
+    return "\n".join(lines)
+
+
+def build_vote_results_text(game: GameState, votes_for: dict[int, int]) -> str:
+    """List every active player sorted by votes received (desc)."""
+    players_by_id = {p.user_id: p for p in game.players}
+    ranked = sorted(votes_for.items(), key=lambda kv: (-kv[1], kv[0]))
+    lines = [
+        "📊 <b>نتیجه رای‌گیری</b>",
+        "",
+    ]
+    for uid, count in ranked:
+        p = players_by_id.get(uid)
+        name = user_mention(uid, p.display_name if p else str(uid))
+        lines.append(f"• {name}: <b>{count}</b> رای")
     return "\n".join(lines)
 
 
@@ -113,7 +133,10 @@ def build_game_over_text(
     )
     word = html.escape(game.word or "???")
 
-    if winner == GameWinner.SPY:
+    if winner == GameWinner.DRAW:
+        headline = "⚖️ <b>بازی مساوی شد</b>"
+        detail = "رای‌ها در دور دوم هم برابر ماند؛ برنده‌ای اعلام نمی‌شود."
+    elif winner == GameWinner.SPY:
         if reason == GameEndReason.SPY_GUESSED_WORD:
             headline = "🕵️ <b>جاسوس(ها) برنده شدند!</b>"
             detail = "جاسوس کلمه را درست حدس زد."

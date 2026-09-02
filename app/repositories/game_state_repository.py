@@ -101,6 +101,8 @@ class GameStateRepository:
             "ends_at": "",
             "lobby_message_id": "",
             "game_message_id": "",
+            "voting_round": "1",
+            "vote_candidates": "",
         }
         flat_args: list[str] = []
         for key, value in fields.items():
@@ -291,6 +293,24 @@ class GameStateRepository:
         player.left_mid_game = True
         await self._redis.hset(players_key, str(user_id), player.model_dump_json())
 
+    async def clear_votes(self, chat_id: int) -> None:
+        """Drop all votes (used when starting a runoff round)."""
+        await self._redis.delete(redis_keys.votes_key(chat_id))
+
+    async def set_vote_runoff(
+        self, chat_id: int, *, round_number: int, candidate_ids: list[int]
+    ) -> None:
+        """Persist runoff metadata and reset the votes hash."""
+        await self._redis.hset(
+            redis_keys.meta_key(chat_id),
+            mapping={
+                "status": GameStatus.VOTING.value,
+                "voting_round": str(round_number),
+                "vote_candidates": ",".join(str(i) for i in candidate_ids),
+            },
+        )
+        await self.clear_votes(chat_id)
+
     # Reads
 
     async def get_game(self, chat_id: int) -> GameState | None:
@@ -331,5 +351,11 @@ class GameStateRepository:
             ends_at=_optional_float(meta.get("ends_at", "")),
             lobby_message_id=_optional_int(meta.get("lobby_message_id", "")),
             game_message_id=_optional_int(meta.get("game_message_id", "")),
+            voting_round=int(meta["voting_round"]) if meta.get("voting_round") else 1,
+            vote_candidate_ids=(
+                [int(x) for x in meta["vote_candidates"].split(",") if x]
+                if meta.get("vote_candidates")
+                else None
+            ),
             players=ordered_players,
         )

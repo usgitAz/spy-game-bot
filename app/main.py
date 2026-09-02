@@ -12,6 +12,7 @@ from app.handlers.create_game import router as create_game_router
 from app.handlers.game import router as game_router
 from app.handlers.lobby import router as lobby_router
 from app.handlers.spy_guess import router as spy_guess_router
+from app.handlers.voting import router as voting_router
 from app.repositories.game_state_repository import GameStateRepository
 from app.utils.db import dispose_engine, get_engine
 from app.utils.logging import configure_logging, get_logger
@@ -68,6 +69,7 @@ async def main() -> None:
     dispatcher.include_router(lobby_router)
     dispatcher.include_router(game_router)
     dispatcher.include_router(spy_guess_router)
+    dispatcher.include_router(voting_router)
 
     dispatcher.startup.register(on_startup)
     dispatcher.shutdown.register(on_shutdown)

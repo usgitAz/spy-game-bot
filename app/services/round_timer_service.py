@@ -20,6 +20,7 @@ from aiogram import Bot
 from app.domain.game_state import GameStatus
 from app.keyboards import build_voting_keyboard
 from app.repositories.game_state_repository import GameStateRepository
+from app.services.voting_timeout_service import start_voting_timeout
 from app.utils.formatting import build_voting_message_text
 from app.utils.logging import get_logger
 
@@ -81,6 +82,9 @@ async def _round_timer_worker(
 
         sent = await bot.send_message(chat_id, text, reply_markup=keyboard)
         await repo.set_message_id(chat_id, game_message_id=sent.message_id)
+
+        # 1-minute deadline: resolve even if some players never vote.
+        start_voting_timeout(bot, repo, chat_id)
 
         logger.info(
             "round_timer_fired",

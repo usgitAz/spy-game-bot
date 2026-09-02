@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     min_round_minutes: int = 3
     max_round_minutes: int = 10
     lobby_timeout_seconds: int = 300
+    voting_timeout_seconds: int = 60
+    final_guess_seconds: int = 30
 
     # Safety-net TTL applied to a game's Redis keys so a crashed bot
     # doesn't leave orphaned state forever. This is intentionally much

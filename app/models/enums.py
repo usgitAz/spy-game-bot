@@ -15,6 +15,8 @@ class GameWinner(enum.StrEnum):
 
     CITIZENS = "citizens"
     SPY = "spy"
+    DRAW = "draw"
+    """Vote runoff stayed tied — no winner."""
 
 
 class GameEndReason(enum.StrEnum):
@@ -28,5 +30,7 @@ class GameEndReason(enum.StrEnum):
     """The spy was voted out but still guessed the word correctly and won."""
     CITIZEN_VOTED_OUT = "citizen_voted_out"
     """A citizen was voted out instead of the spy; the spy wins."""
+    VOTE_TIE = "vote_tie"
+    """Second-round vote stayed tied — game declared a draw."""
     CANCELLED = "cancelled"
     """The game was deleted/aborted before completion (e.g. lobby timeout)."""
