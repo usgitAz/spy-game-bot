@@ -26,12 +26,15 @@ async def end_game(
     winner: GameWinner,
     reason: GameEndReason,
     announce: bool = True,
-) -> None:
-    """Clear Redis first, then announce — avoids recovery racing mid-end."""
+) -> bool:
+    """Clear Redis, then announce at most once.
+
+    Returns True if this call was the one that actually ended the game
+    (deleted live keys). Concurrent callers (final-guess timer and the
+    recovery sweeper often race) get False and must not announce again.
+    """
     chat_id = game.chat_id
 
-    # Drop live state immediately so the recovery sweeper cannot re-end
-    # this game with a different outcome (e.g. citizen win after a draw).
     for msg_id in (game.game_message_id, game.lobby_message_id):
         if msg_id is None:
             continue
@@ -40,7 +43,15 @@ async def end_game(
         except Exception:  # noqa: BLE001
             pass
 
-    await repo.force_delete_game(chat_id)
+    deleted = await repo.force_delete_game(chat_id)
+    if deleted == 0:
+        logger.info(
+            "game_end_skipped_already_gone",
+            chat_id=chat_id,
+            winner=winner.value,
+            reason=reason.value,
+        )
+        return False
 
     if announce:
         text = build_game_over_text(game, winner=winner, reason=reason)
@@ -55,4 +66,6 @@ async def end_game(
         winner=winner.value,
         reason=reason.value,
         player_count=game.player_count,
+        deleted_keys=deleted,
     )
+    return True

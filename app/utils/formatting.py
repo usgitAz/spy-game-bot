@@ -16,10 +16,30 @@ if TYPE_CHECKING:
     from app.models.enums import GameEndReason, GameWinner
 
 
+# Bidirectional controls so mixed Persian + Latin names stay RTL in Telegram.
+RTL_MARK = "\u200f"  # Right-to-Left Mark — force paragraph direction
+# First Strong Isolate / Pop Directional Isolate — keep Latin names from
+# flipping the surrounding Persian sentence.
+_FSI = "\u2068"
+_PDI = "\u2069"
+
+
+def force_rtl(text: str) -> str:
+    """Prefix a message so Telegram renders it right-to-left."""
+    if not text:
+        return text
+    if text.startswith(RTL_MARK):
+        return text
+    return RTL_MARK + text
+
+
 def user_mention(user_id: int, display_name: str) -> str:
-    """Build a clickable, tag-style mention that works even without a username."""
+    """Build a clickable mention; isolate the name so Latin text stays local."""
     safe_name = html.escape(display_name)
-    return f'<a href="tg://user?id={user_id}">{safe_name}</a>'
+    # Isolate the visible name so an English nickname does not reverse
+    # the rest of a Persian sentence in Telegram clients.
+    isolated = f"{_FSI}{safe_name}{_PDI}"
+    return f'<a href="tg://user?id={user_id}">{isolated}</a>'
 
 
 def build_lobby_message_text(game: GameState) -> str:
@@ -40,7 +60,7 @@ def build_lobby_message_text(game: GameState) -> str:
         )
     else:
         lines.append("هنوز کسی نپیوسته.")
-    return "\n".join(lines)
+    return force_rtl(chr(10).join(lines))
 
 
 def build_game_message_text(game: GameState) -> str:
@@ -62,7 +82,7 @@ def build_game_message_text(game: GameState) -> str:
     ]
     for i, p in enumerate(game.players, start=1):
         lines.append(f"{i}. {user_mention(p.user_id, p.display_name)}")
-    return "\n".join(lines)
+    return force_rtl(chr(10).join(lines))
 
 
 def build_voting_message_text(game: GameState, *, runoff: bool = False) -> str:
@@ -71,7 +91,7 @@ def build_voting_message_text(game: GameState, *, runoff: bool = False) -> str:
         "🗳 <b>دور دوم رای‌گیری</b>" if runoff else "🗳 <b>زمان رای‌گیری</b>",
         "",
         (
-            "فقط بین نفراتی که رای مساوی داشتند رای بدهید."
+            "بین نفراتی که رای مساوی داشتند رای بدهید."
             if runoff
             else "وقت بحث تمام شد. به کسی که فکر می‌کنید جاسوس است رای بدهید."
         ),
@@ -82,7 +102,7 @@ def build_voting_message_text(game: GameState, *, runoff: bool = False) -> str:
     active = [p for p in game.players if not p.eliminated and not p.left_mid_game]
     for i, p in enumerate(active, start=1):
         lines.append(f"{i}. {user_mention(p.user_id, p.display_name)}")
-    return "\n".join(lines)
+    return force_rtl(chr(10).join(lines))
 
 
 def build_vote_results_text(game: GameState, votes_for: dict[int, int]) -> str:
@@ -97,7 +117,7 @@ def build_vote_results_text(game: GameState, votes_for: dict[int, int]) -> str:
         p = players_by_id.get(uid)
         name = user_mention(uid, p.display_name if p else str(uid))
         lines.append(f"• {name}: <b>{count}</b> رای")
-    return "\n".join(lines)
+    return force_rtl(chr(10).join(lines))
 
 
 def role_reveal_text(*, is_spy: bool, word: str | None) -> str:
@@ -164,4 +184,4 @@ def build_game_over_text(
         f"🔤 کلمه: <b>{word}</b>",
         f"🕵️ جاسوس(ها): {spy_names}",
     ]
-    return "\n".join(line for line in lines if line is not None)
+    return force_rtl(chr(10).join(line for line in lines if line is not None))

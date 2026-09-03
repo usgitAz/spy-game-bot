@@ -139,9 +139,14 @@ class GameStateRepository:
         if result == -2:
             raise NotAuthorizedError(chat_id)
 
-    async def force_delete_game(self, chat_id: int) -> None:
-        """Delete a game unconditionally (used by the lobby-timeout auto-cleanup)."""
-        await self._redis.delete(*redis_keys.all_keys(chat_id))
+    async def force_delete_game(self, chat_id: int) -> int:
+        """Delete a game unconditionally.
+
+        Returns the number of Redis keys removed. Callers that announce an
+        outcome should only announce when this returns a positive value, so
+        concurrent enders (timer + recovery sweeper) cannot double-post.
+        """
+        return int(await self._redis.delete(*redis_keys.all_keys(chat_id)))
 
     async def game_exists(self, chat_id: int) -> bool:
         return bool(await self._redis.exists(redis_keys.meta_key(chat_id)))

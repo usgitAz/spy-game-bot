@@ -11,7 +11,7 @@ from app.repositories.game_state_repository import (
     NotInVotingPhaseError,
 )
 from app.services.voting_service import resolve_voting
-from app.utils.formatting import user_mention
+from app.utils.formatting import force_rtl, user_mention
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -74,7 +74,7 @@ async def handle_vote(
     try:
         await callback.bot.send_message(
             chat_id,
-            f"🗳 {voter_name} به {target_name} رای داد.",
+            force_rtl(f"🗳 {voter_name} به {target_name} رای داد."),
         )
     except Exception:  # noqa: BLE001
         logger.exception("vote_announce_failed", chat_id=chat_id)

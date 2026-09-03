@@ -18,6 +18,7 @@ from app.services.game_end_service import end_game
 from app.utils.formatting import (
     build_vote_results_text,
     build_voting_message_text,
+    force_rtl,
     user_mention,
 )
 from app.utils.logging import get_logger
@@ -191,8 +192,7 @@ async def _apply_elimination(
         try:
             await bot.send_message(
                 chat_id,
-                f"❌ {elim_mention} با بیشترین رای اخراج شد، اما شهروند بود.\n"
-                "🕵️ جاسوس(ها) برنده شدند!",
+                force_rtl(f"❌ {elim_mention} با بیشترین رای اخراج شد، اما شهروندبود."),
             )
         except Exception:  # noqa: BLE001
             pass
@@ -213,7 +213,7 @@ async def _apply_elimination(
             chat_id,
             f"🕵️ {elim_mention} با بیشترین رای اخراج شد و <b>جاسوس</b> بود!\n\n"
             "۳۰ ثانیه فرصت داری عین کلمه را در چت بفرستی. "
-            "اگر درست بگویی می‌بری؛ وگرنه شهروندان برنده می‌شوند.",
+            "اگر درست بگویی می‌بری وگرنه شهروندان برنده می‌شوند.",
         )
     except Exception:  # noqa: BLE001
         pass
