@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from aiogram import Bot
 
-from app.domain.game_state import GameState, GameStatus
+from app.domain.game_state import GameState
 from app.models.enums import GameEndReason, GameWinner
 from app.repositories.game_state_repository import GameStateRepository
 from app.utils.formatting import build_game_over_text
@@ -27,23 +27,11 @@ async def end_game(
     reason: GameEndReason,
     announce: bool = True,
 ) -> None:
-    """Announce the outcome (optional), delete panel messages, drop Redis keys."""
+    """Clear Redis first, then announce — avoids recovery racing mid-end."""
     chat_id = game.chat_id
 
-    # Mark status first so any in-flight round-timer worker no-ops.
-    try:
-        await repo.set_status(chat_id, GameStatus.VOTING)  # temporary; keys go next
-    except Exception:  # noqa: BLE001
-        pass
-
-    if announce:
-        text = build_game_over_text(game, winner=winner, reason=reason)
-        try:
-            await bot.send_message(chat_id, text)
-        except Exception:  # noqa: BLE001
-            logger.exception("game_over_announce_failed", chat_id=chat_id)
-
-    # Best-effort cleanup of the live panel message(s).
+    # Drop live state immediately so the recovery sweeper cannot re-end
+    # this game with a different outcome (e.g. citizen win after a draw).
     for msg_id in (game.game_message_id, game.lobby_message_id):
         if msg_id is None:
             continue
@@ -53,6 +41,14 @@ async def end_game(
             pass
 
     await repo.force_delete_game(chat_id)
+
+    if announce:
+        text = build_game_over_text(game, winner=winner, reason=reason)
+        try:
+            await bot.send_message(chat_id, text)
+        except Exception:  # noqa: BLE001
+            logger.exception("game_over_announce_failed", chat_id=chat_id)
+
     logger.info(
         "game_ended",
         chat_id=chat_id,

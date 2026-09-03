@@ -76,8 +76,12 @@ async def resolve_voting(
     if game is None or game.status != GameStatus.VOTING:
         return
 
-    # Prevent double-resolve (all-voted + timer racing).
-    await repo.set_status(chat_id, GameStatus.AWAITING_FINAL_GUESS)
+    # Prevent double-resolve (all-voted + timer / recovery racing).
+    # Do NOT flip to AWAITING_FINAL_GUESS here — that made the recovery
+    # sweeper treat the game as an expired final-guess and announce a
+    # citizen win after a legitimate draw.
+    if not await repo.try_acquire_resolve_lock(chat_id):
+        return
 
     candidates = _candidate_pool(game)
     votes = await repo.get_votes(chat_id)
@@ -102,16 +106,7 @@ async def resolve_voting(
             await _start_runoff(bot, repo, game, tally.top_ids)
             return
 
-        # Second round still tied → draw.
-        try:
-            await bot.send_message(
-                chat_id,
-                "⚖️ رای‌ها در دور دوم هم مساوی ماند.\n"
-                "بازی <b>مساوی</b> اعلام می‌شود — برنده‌ای نیست.",
-            )
-        except Exception:  # noqa: BLE001
-            pass
-        # Re-read after status flip for a consistent snapshot.
+        # Second round still tied → single draw announcement via end_game.
         game = await repo.get_game(chat_id) or game
         await end_game(
             bot,
@@ -195,7 +190,9 @@ async def _apply_elimination(
     if eliminated.role != PlayerRole.SPY:
         try:
             await bot.send_message(
-                chat_id, f"❌ {elim_mention} با بیشترین رای اخراج شد، اما شهروند بود."
+                chat_id,
+                f"❌ {elim_mention} با بیشترین رای اخراج شد، اما شهروند بود.\n"
+                "🕵️ جاسوس(ها) برنده شدند!",
             )
         except Exception:  # noqa: BLE001
             pass

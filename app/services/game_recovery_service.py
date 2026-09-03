@@ -116,9 +116,9 @@ async def _recover_one(bot: Bot, repo: GameStateRepository, chat_id: int) -> boo
     # --- FINAL GUESS past deadline ---
     if game.status == GameStatus.AWAITING_FINAL_GUESS:
         deadline = game.final_guess_ends_at
-        if deadline is None:
-            deadline = now  # treat missing deadline as already expired
-        if now < deadline:
+        # Only recover when a real deadline was persisted. Missing value
+        # means mid-transition — do not invent a citizen win.
+        if deadline is None or now < deadline:
             return False
         from app.services.game_end_service import end_game
 

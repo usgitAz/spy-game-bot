@@ -13,6 +13,4 @@ DEFAULT_ROUND_SECONDS = ROUND_TIME_OPTIONS[0][1]
 DEFAULT_ALLOW_TWO_SPIES = False
 
 # Placeholder — the user said they'll provide the final rules text later.
-# Shown in a popup (callback.answer(show_alert=True)) when the "قوانین بازی"
-# button is pressed.
 GAME_RULES_TEXT = "قوانین بازی جاسوس:\n\nاین متن به‌زودی تکمیل می‌شود."

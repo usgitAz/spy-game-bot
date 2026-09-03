@@ -293,6 +293,11 @@ class GameStateRepository:
         player.left_mid_game = True
         await self._redis.hset(players_key, str(user_id), player.model_dump_json())
 
+    async def try_acquire_resolve_lock(self, chat_id: int) -> bool:
+        """NX lock so only one resolve_voting runs per chat (timer vs all-voted)."""
+        key = f"spy:game:{chat_id}:resolve_lock"
+        return bool(await self._redis.set(key, "1", nx=True, ex=120))
+
     async def clear_votes(self, chat_id: int) -> None:
         """Drop all votes (used when starting a runoff round)."""
         await self._redis.delete(redis_keys.votes_key(chat_id))
