@@ -79,5 +79,5 @@ async def cmd_delete_current_game(message: Message, repo: GameStateRepository) -
         previous_status=game.status.value,
     )
     await message.answer(
-        "🗑 بازی فعلی حذف شد.\nهمه state این بازی پاک شد؛ می‌توانید /newgame بزنید."
+        "🗑 بازی فعلی حذف شد.\nبرای ساخت بازی جدید می‌توانید /newgame بزنید."
     )
