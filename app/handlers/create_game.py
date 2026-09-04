@@ -61,7 +61,7 @@ async def cmd_new_game(message: Message, repo: GameStateRepository) -> None:
     )
     await message.answer(
         "⚙️ <b>تنظیمات بازی جاسوس</b>\n\n"
-        "زمان هر دور و امکان دو جاسوس‌بودن (برای گروه‌های ۷ نفر و بیشتر) را "
+        "زمان یک دور بازی و امکان دو جاسوس‌بودن (برای بازی با ۷ نفر و بیشتر) را "
         "انتخاب کنید، سپس روی «ساخت بازی» بزنید.",
         reply_markup=keyboard,
     )

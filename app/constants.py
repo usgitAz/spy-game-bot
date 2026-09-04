@@ -12,5 +12,4 @@ ROUND_TIME_OPTIONS: list[tuple[str, int]] = [
 DEFAULT_ROUND_SECONDS = ROUND_TIME_OPTIONS[0][1]
 DEFAULT_ALLOW_TWO_SPIES = False
 
-# Placeholder — the user said they'll provide the final rules text later.
-GAME_RULES_TEXT = "قوانین بازی جاسوس:\n\nاین متن به‌زودی تکمیل می‌شود."
+GAME_RULES_TEXT = "قوانین : همه بازیکنان کلمه را می‌بینند جز جاسوس. با سؤال از هم، جاسوس را پیدا کنید. ارسال کلمه توسط جاسوس حین بازی = برد فوری. رأی مساوی = رأی‌گیری دوباره؛ پس از شناسایی، جاسوس فرصت حدس کلمه را دارد."

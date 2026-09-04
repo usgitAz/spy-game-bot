@@ -91,7 +91,7 @@ def build_voting_message_text(game: GameState, *, runoff: bool = False) -> str:
         "🗳 <b>دور دوم رای‌گیری</b>" if runoff else "🗳 <b>زمان رای‌گیری</b>",
         "",
         (
-            "بین نفراتی که رای مساوی داشتند رای بدهید."
+            "فقط بین نفراتی که رای مساوی داشتند رای بدهید."
             if runoff
             else "وقت بحث تمام شد. به کسی که فکر می‌کنید جاسوس است رای بدهید."
         ),
@@ -116,7 +116,8 @@ def build_vote_results_text(game: GameState, votes_for: dict[int, int]) -> str:
     for uid, count in ranked:
         p = players_by_id.get(uid)
         name = user_mention(uid, p.display_name if p else str(uid))
-        lines.append(f"• {name}: <b>{count}</b> رای")
+        # Persian-first so Latin nicknames do not flip the line to LTR.
+        lines.append(force_rtl(f"• <b>{count}</b> رای — {name}"))
     return force_rtl(chr(10).join(lines))
 
 
