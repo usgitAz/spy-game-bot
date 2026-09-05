@@ -5,7 +5,11 @@ from aiogram.enums import ChatMemberStatus, ChatType
 from aiogram.types import ChatMemberUpdated
 
 from app.repositories.game_state_repository import GameStateRepository
-from app.services.player_leave_service import handle_bot_removed, handle_member_left
+from app.services.player_leave_service import (
+    handle_bot_demoted,
+    handle_bot_removed,
+    handle_member_left,
+)
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -76,6 +80,29 @@ async def on_my_chat_member(
             new_status=str(new_status),
         )
         await handle_bot_removed(event.bot, repo, chat_id=event.chat.id)
+        return
+
+    # Admin rights removed while bot stays in the group.
+    _admin = {
+        ChatMemberStatus.ADMINISTRATOR,
+        ChatMemberStatus.CREATOR,
+        "administrator",
+        "creator",
+    }
+    _not_admin = {
+        ChatMemberStatus.MEMBER,
+        ChatMemberStatus.RESTRICTED,
+        "member",
+        "restricted",
+    }
+    if old_status in _admin and new_status in _not_admin:
+        logger.info(
+            "bot_demoted",
+            chat_id=event.chat.id,
+            old_status=str(old_status),
+            new_status=str(new_status),
+        )
+        await handle_bot_demoted(event.bot, repo, chat_id=event.chat.id)
         return
 
     # Bot joined as a normal member (not admin) → explain the requirement.

@@ -279,3 +279,80 @@ async def _handle_final_guess_leave(
         )
     except Exception:  # noqa: BLE001
         pass
+
+
+async def handle_bot_demoted(
+    bot: Bot,
+    repo: GameStateRepository,
+    *,
+    chat_id: int,
+) -> None:
+    """Bot lost admin rights mid-session.
+
+    Without admin status, leave tracking and our middleware would leave an
+    in-progress game stuck (votes/buttons blocked). Cancel any live game
+    cleanly and tell the group to re-promote the bot.
+    """
+    game = await repo.get_game(chat_id)
+    if game is None:
+        try:
+            await bot.send_message(
+                chat_id,
+                force_rtl(
+                    "⚠️ دسترسی ادمین ربات برداشته شد.\n"
+                    "تا وقتی دوباره ادمین نشود، دستورات کار نمی‌کنند."
+                ),
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return
+
+    # Prefer a proper end_game announcement when a match was running.
+    from app.services.game_end_service import end_game
+
+    if game.status == GameStatus.LOBBY:
+        for msg_id in (game.lobby_message_id, game.game_message_id):
+            if msg_id is None:
+                continue
+            try:
+                await bot.delete_message(chat_id, msg_id)
+            except Exception:  # noqa: BLE001
+                pass
+        await repo.force_delete_game(chat_id)
+        try:
+            await bot.send_message(
+                chat_id,
+                force_rtl(
+                    "⚠️ دسترسی ادمین ربات برداشته شد؛ لابی حذف شد.\n"
+                    "بعد از ادمین کردن دوباره /newgame بزنید."
+                ),
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        logger.info("bot_demoted_lobby_cleared", chat_id=chat_id)
+        return
+
+    await end_game(
+        bot,
+        repo,
+        game,
+        winner=GameWinner.DRAW,
+        reason=GameEndReason.CANCELLED,
+        announce=False,
+    )
+    try:
+        await bot.send_message(
+            chat_id,
+            force_rtl(
+                "⚠️ دسترسی ادمین ربات وسط بازی برداشته شد؛ بازی لغو شد.\n"
+                "بدون ادمین، ربات نمی‌تواند خروج اعضا و پنل‌ها را درست مدیریت کند.\n"
+                "ربات را دوباره ادمین کنید و /newgame بزنید."
+            ),
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    logger.info(
+        "bot_demoted_game_cancelled",
+        chat_id=chat_id,
+        previous_status=game.status.value,
+    )
