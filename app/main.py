@@ -15,6 +15,7 @@ from app.handlers.game import router as game_router
 from app.handlers.lobby import router as lobby_router
 from app.handlers.spy_guess import router as spy_guess_router
 from app.handlers.voting import router as voting_router
+from app.middlewares.bot_admin import BotAdminMiddleware
 from app.repositories.game_state_repository import GameStateRepository
 from app.services.game_recovery_service import start_game_recovery_sweeper
 from app.utils.db import dispose_engine, get_engine
@@ -66,6 +67,10 @@ async def main() -> None:
     # Shared, process-wide repository instance injected into every handler
     # that declares a `repo: GameStateRepository` parameter.
     dispatcher["repo"] = GameStateRepository(get_redis())
+
+    # Group commands/callbacks only work when the bot is an admin.
+    dispatcher.message.middleware(BotAdminMiddleware())
+    dispatcher.callback_query.middleware(BotAdminMiddleware())
 
     dispatcher.include_router(root_router)
     dispatcher.include_router(create_game_router)

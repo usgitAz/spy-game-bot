@@ -61,13 +61,60 @@ async def on_chat_member(event: ChatMemberUpdated, repo: GameStateRepository) ->
 async def on_my_chat_member(
     event: ChatMemberUpdated, repo: GameStateRepository
 ) -> None:
-    """Bot itself was removed/kicked — wipe live Redis state for that chat."""
-    if not _is_leave_transition(event):
+    """Bot added/removed or rights changed in a group."""
+    from app.utils.bot_permissions import BOT_NOT_ADMIN_TEXT
+    from app.utils.formatting import force_rtl
+
+    old_status = event.old_chat_member.status
+    new_status = event.new_chat_member.status
+
+    # Bot left / kicked → clear live game state.
+    if _is_leave_transition(event):
+        logger.info(
+            "bot_removed_from_chat",
+            chat_id=event.chat.id,
+            new_status=str(new_status),
+        )
+        await handle_bot_removed(event.bot, repo, chat_id=event.chat.id)
         return
 
-    logger.info(
-        "bot_removed_from_chat",
-        chat_id=event.chat.id,
-        new_status=str(event.new_chat_member.status),
-    )
-    await handle_bot_removed(event.bot, repo, chat_id=event.chat.id)
+    # Bot joined as a normal member (not admin) → explain the requirement.
+    joined_as_member = (
+        old_status in {ChatMemberStatus.LEFT, ChatMemberStatus.KICKED}
+        or str(old_status) in ("left", "kicked")
+    ) and new_status in {
+        ChatMemberStatus.MEMBER,
+        ChatMemberStatus.RESTRICTED,
+        "member",
+        "restricted",
+    }
+    if joined_as_member:
+        try:
+            await event.bot.send_message(event.chat.id, force_rtl(BOT_NOT_ADMIN_TEXT))
+        except Exception:  # noqa: BLE001
+            logger.exception("bot_join_not_admin_warn_failed", chat_id=event.chat.id)
+        return
+
+    # Promoted to admin — short confirmation.
+    became_admin = new_status in {
+        ChatMemberStatus.ADMINISTRATOR,
+        ChatMemberStatus.CREATOR,
+        "administrator",
+        "creator",
+    } and old_status not in {
+        ChatMemberStatus.ADMINISTRATOR,
+        ChatMemberStatus.CREATOR,
+        "administrator",
+        "creator",
+    }
+    if became_admin:
+        try:
+            await event.bot.send_message(
+                event.chat.id,
+                force_rtl(
+                    "✅ ربات ادمین شد و آماده استفاده است.\n"
+                    "با دستور /newgame بازی جدید بسازید."
+                ),
+            )
+        except Exception:  # noqa: BLE001
+            pass
