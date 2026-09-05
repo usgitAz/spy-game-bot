@@ -156,7 +156,10 @@ def build_game_over_text(
 
     if winner == GameWinner.DRAW:
         headline = "⚖️ <b>بازی مساوی شد</b>"
-        detail = "رای‌ها در دور دوم هم برابر ماند؛ برنده‌ای اعلام نمی‌شود."
+        if reason == GameEndReason.TOO_FEW_PLAYERS:
+            detail = "تعداد بازیکنان فعال از حداقل لازم کمتر شد."
+        else:
+            detail = "رای‌ها در دور دوم هم برابر ماند؛ برنده‌ای اعلام نمی‌شود."
     elif winner == GameWinner.SPY:
         if reason == GameEndReason.SPY_GUESSED_WORD:
             headline = "🕵️ <b>جاسوس(ها) برنده شدند!</b>"
@@ -174,6 +177,9 @@ def build_game_over_text(
         if reason == GameEndReason.SPY_VOTED_OUT_WRONG_GUESS:
             headline = "👥 <b>شهروندان برنده شدند!</b>"
             detail = "جاسوس رای آورد و نتوانست کلمه را حدس بزند."
+        elif reason == GameEndReason.SPY_LEFT_GROUP:
+            headline = "👥 <b>شهروندان برنده شدند!</b>"
+            detail = "آخرین جاسوس از گروه خارج شد."
         else:
             headline = "👥 <b>شهروندان برنده شدند!</b>"
             detail = ""

@@ -9,6 +9,7 @@ from aiogram.types import Message
 from app.bot.bootstrap import create_bot, create_dispatcher
 from app.config.settings import get_settings
 from app.handlers.admin import router as admin_router
+from app.handlers.chat_member import router as chat_member_router
 from app.handlers.create_game import router as create_game_router
 from app.handlers.game import router as game_router
 from app.handlers.lobby import router as lobby_router
@@ -75,6 +76,7 @@ async def main() -> None:
     )  # before spy_guess so /commands are not swallowed
     dispatcher.include_router(voting_router)
     dispatcher.include_router(spy_guess_router)
+    dispatcher.include_router(chat_member_router)
 
     dispatcher.startup.register(on_startup)
     dispatcher.shutdown.register(on_shutdown)
@@ -84,7 +86,10 @@ async def main() -> None:
 
     logger.info("bot_starting")
     await bot.delete_webhook(drop_pending_updates=True)
-    await dispatcher.start_polling(bot)
+    # Ensure chat_member updates are received (leave / kick / bot removed).
+    await dispatcher.start_polling(
+        bot, allowed_updates=dispatcher.resolve_used_update_types()
+    )
 
 
 if __name__ == "__main__":
