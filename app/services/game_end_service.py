@@ -1,8 +1,7 @@
 """End a live game: announce the result and clear Redis state.
 
-Full archival into Postgres (Game / GamePlayer rows, user stats) lands in
-stage 10.  This service only handles the live-side cleanup so the group
-can start a new game immediately.
+Live-side cleanup only (Redis). Persistent archival into Postgres is
+deferred — see TODO.md (next stage).
 """
 
 from __future__ import annotations

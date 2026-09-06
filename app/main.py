@@ -19,7 +19,6 @@ from app.middlewares.bot_admin import BotAdminMiddleware
 from app.middlewares.throttle import ThrottleMiddleware
 from app.repositories.game_state_repository import GameStateRepository
 from app.services.game_recovery_service import start_game_recovery_sweeper
-from app.utils.db import dispose_engine, get_engine
 from app.utils.logging import configure_logging, get_logger
 from app.utils.redis_client import close_redis, get_redis
 
@@ -38,23 +37,19 @@ async def handle_start(message: Message) -> None:
 
 
 async def on_startup() -> None:
-    """Verify external dependencies (Postgres, Redis) are reachable."""
-    engine = get_engine()
-    async with engine.connect() as conn:
-        await conn.run_sync(lambda _: None)
-    logger.info("postgres_connection_ok")
-
+    """Verify external dependencies required at runtime (Redis only for now)."""
+    # TODO: re-enable Postgres connectivity check when game archival
+    # and user stats are implemented.
     redis = get_redis()
     await redis.ping()
     logger.info("redis_connection_ok")
-
     logger.info("startup_complete")
 
 
 async def on_shutdown() -> None:
     """Gracefully release external resources."""
     await close_redis()
-    await dispose_engine()
+    # TODO: dispose SQLAlchemy engine when Postgres is re-enabled.
     logger.info("shutdown_complete")
 
 

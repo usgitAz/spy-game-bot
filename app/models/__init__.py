@@ -1,8 +1,9 @@
-"""Import every model so `Base.metadata` is fully populated.
+"""ORM models for **future** Postgres archival (TODO).
 
-Alembic's `env.py` imports `Base` from `app.models.base`; importing this
-package ensures every table is registered on that metadata before
-autogenerate compares it against the database.
+These models are kept in the repo so schema design is not lost, but the
+running bot does **not** open a database connection and does not write rows.
+
+Live gameplay state lives in Redis (`app.domain` / `GameStateRepository`).
 """
 
 from app.models.base import Base

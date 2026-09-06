@@ -1,9 +1,9 @@
 services:
-  postgres:
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data_dev:/var/lib/postgresql/data
+  # postgres:
+  #   ports:
+  #     - "5433:5432"
+  #   volumes:
+  #     - postgres_data_dev:/var/lib/postgresql/data
 
   redis:
     ports:
@@ -18,10 +18,10 @@ services:
       - .env
     environment:
       TELEGRAM_PROXY: ${TELEGRAM_PROXY:-}
-      POSTGRES_HOST: postgres
+      # POSTGRES_HOST: postgres
       REDIS_HOST: redis
       LOG_LEVEL: DEBUG
-    extra_hosts:
+    extra_hosts: #for using proxy and access the proxy port if TELEGRAM_PROXY is set on .env
       - "host.docker.internal:host-gateway"
     volumes:
       - ./app:/app/app
@@ -29,12 +29,12 @@ services:
       - ./migrations:/app/migrations
       - ./alembic.ini:/app/alembic.ini
     depends_on:
-      postgres:
-        condition: service_healthy
+      # postgres:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
     command: >
       sh -c "watchmedo auto-restart --directory=/app/app --pattern=*.py --recursive -- python -m app.main"
 
-volumes:
-  postgres_data_dev:
+# volumes:
+#   postgres_data_dev:

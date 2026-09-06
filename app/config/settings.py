@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     # Telegram proxy
     telegram_proxy: str | None = None
 
-    # PostgreSQL
+    # PostgreSQL — optional / unused until next stage (archival + stats).
+    # Bot does not connect at startup; live state is Redis-only.
     postgres_user: str = "spybot"
     postgres_password: str = "spybot"
     postgres_db: str = "spybot"
@@ -68,7 +69,7 @@ class Settings(BaseSettings):
 
     @property
     def postgres_dsn(self) -> str:
-        """Async SQLAlchemy DSN for the asyncpg driver."""
+        """Async SQLAlchemy DSN (TODO next stage archival only)."""
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
