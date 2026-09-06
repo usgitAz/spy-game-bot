@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     lobby_timeout_seconds: int = 300
     voting_timeout_seconds: int = 60
     final_guess_seconds: int = 30
+    # Anti-spam: min seconds between accepted events per user.
+    throttle_callback_seconds: float = 0.7
+    throttle_command_seconds: float = 3.0
 
     # Safety-net TTL applied to a game's Redis keys so a crashed bot
     # doesn't leave orphaned state forever. This is intentionally much
