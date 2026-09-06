@@ -1,8 +1,8 @@
 """Bot and Dispatcher construction.
 
-The FSM storage is backed by Redis so that game state, lobby membership,
-timers, and votes survive bot restarts and can be shared safely across
-concurrent updates for multiple groups.
+FSM storage uses the same Redis instance style as game state. Live game
+data is managed via ``GameStateRepository``; FSM storage is only what
+aiogram needs for its dispatcher plumbing.
 """
 
 from aiogram import Bot, Dispatcher
@@ -12,6 +12,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 
 from app.config.settings import Settings
+from app.utils.redis_client import build_redis
 
 
 def create_bot(settings: Settings) -> Bot:
@@ -26,5 +27,8 @@ def create_bot(settings: Settings) -> Bot:
 
 
 def create_dispatcher(settings: Settings) -> Dispatcher:
-    storage = RedisStorage.from_url(settings.redis_dsn)
+    # Do not use RedisStorage.from_url alone — that connection would still
+    # try MAINT_NOTIFICATIONS on older Redis and spam the logs.
+    redis = build_redis(settings.redis_dsn, decode_responses=True)
+    storage = RedisStorage(redis=redis)
     return Dispatcher(storage=storage)
