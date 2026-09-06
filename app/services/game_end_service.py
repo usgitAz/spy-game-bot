@@ -1,7 +1,7 @@
 """End a live game: announce the result and clear Redis state.
 
 Live-side cleanup only (Redis). Persistent archival into Postgres is
-deferred — see TODO.md (next stage).
+deferred — see TODO.md (stage 10).
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from app.models.enums import GameEndReason, GameWinner
 from app.repositories.game_state_repository import GameStateRepository
 from app.utils.formatting import build_game_over_text
 from app.utils.logging import get_logger
+from app.utils.telegram_helpers import safe_delete_message, safe_send_message
 
 logger = get_logger(__name__)
 
@@ -37,10 +38,7 @@ async def end_game(
     for msg_id in (game.game_message_id, game.lobby_message_id):
         if msg_id is None:
             continue
-        try:
-            await bot.delete_message(chat_id, msg_id)
-        except Exception:  # noqa: BLE001
-            pass
+        await safe_delete_message(bot, chat_id, msg_id)
 
     deleted = await repo.force_delete_game(chat_id)
     if deleted == 0:
@@ -54,10 +52,7 @@ async def end_game(
 
     if announce:
         text = build_game_over_text(game, winner=winner, reason=reason)
-        try:
-            await bot.send_message(chat_id, text)
-        except Exception:  # noqa: BLE001
-            logger.exception("game_over_announce_failed", chat_id=chat_id)
+        await safe_send_message(bot, chat_id, text)
 
     logger.info(
         "game_ended",

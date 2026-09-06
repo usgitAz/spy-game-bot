@@ -22,6 +22,10 @@ from app.utils.formatting import (
     user_mention,
 )
 from app.utils.logging import get_logger
+from app.utils.telegram_helpers import (
+    safe_delete_message,
+    safe_send_message,
+)
 
 logger = get_logger(__name__)
 
@@ -90,16 +94,10 @@ async def resolve_voting(
 
     # Remove current voting panel.
     if game.game_message_id is not None:
-        try:
-            await bot.delete_message(chat_id, game.game_message_id)
-        except Exception:  # noqa: BLE001
-            pass
+        await safe_delete_message(bot, chat_id, game.game_message_id)
 
     results_text = build_vote_results_text(game, tally.votes_for)
-    try:
-        await bot.send_message(chat_id, results_text)
-    except Exception:  # noqa: BLE001
-        logger.exception("vote_results_announce_failed", chat_id=chat_id)
+    await safe_send_message(bot, chat_id, results_text)
 
     # --- Tie handling ---
     if len(tally.top_ids) != 1:
@@ -139,7 +137,8 @@ async def _start_runoff(
     await repo.set_voting_deadline(chat_id, voting_ends)
 
     try:
-        await bot.send_message(
+        await safe_send_message(
+            bot,
             chat_id,
             "⚖️ رای‌ها مساوی شد بین: "
             f"{names}\n\n"
@@ -153,7 +152,7 @@ async def _start_runoff(
     assert game is not None
     text = build_voting_message_text(game, runoff=True)
     keyboard = build_voting_keyboard(chat_id, tied_players)
-    sent = await bot.send_message(chat_id, text, reply_markup=keyboard)
+    sent = await safe_send_message(bot, chat_id, text, reply_markup=keyboard)
     await repo.set_message_id(chat_id, game_message_id=sent.message_id)
 
     from app.services.voting_timeout_service import start_voting_timeout
@@ -190,7 +189,8 @@ async def _apply_elimination(
 
     if eliminated.role != PlayerRole.SPY:
         try:
-            await bot.send_message(
+            await safe_send_message(
+                bot,
                 chat_id,
                 force_rtl(f"❌ {elim_mention} با بیشترین رای اخراج شد، اما شهروندبود."),
             )
@@ -209,7 +209,8 @@ async def _apply_elimination(
     # Spy voted out → 30s final-guess window.
     await repo.set_status(chat_id, GameStatus.AWAITING_FINAL_GUESS)
     try:
-        await bot.send_message(
+        await safe_send_message(
+            bot,
             chat_id,
             f"🕵️ {elim_mention} با بیشترین رای اخراج شد و <b>جاسوس</b> بود!\n\n"
             "۳۰ ثانیه فرصت داری عین کلمه را در چت بفرستی. "

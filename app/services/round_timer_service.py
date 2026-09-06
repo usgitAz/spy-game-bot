@@ -24,6 +24,7 @@ from app.repositories.game_state_repository import GameStateRepository
 from app.services.voting_timeout_service import start_voting_timeout
 from app.utils.formatting import build_voting_message_text
 from app.utils.logging import get_logger
+from app.utils.telegram_helpers import safe_delete_message, safe_send_message
 
 logger = get_logger(__name__)
 
@@ -73,16 +74,16 @@ async def _round_timer_worker(
         # Remove the old "see my role" panel so it is not left buried
         # under the discussion messages.
         if old_message_id is not None:
-            try:
-                await bot.delete_message(chat_id, old_message_id)
-            except Exception:  # noqa: BLE001 — already gone / no permission
-                pass
+            await safe_delete_message(bot, chat_id, old_message_id)
 
         active = [p for p in game.players if not p.eliminated and not p.left_mid_game]
         text = build_voting_message_text(game)
         keyboard = build_voting_keyboard(chat_id, active)
 
-        sent = await bot.send_message(chat_id, text, reply_markup=keyboard)
+        sent = await safe_send_message(bot, chat_id, text, reply_markup=keyboard)
+        if sent is None:
+            logger.error("round_timer_voting_panel_failed", chat_id=chat_id)
+            return
         await repo.set_message_id(chat_id, game_message_id=sent.message_id)
 
         # 1-minute deadline: resolve even if some players never vote.

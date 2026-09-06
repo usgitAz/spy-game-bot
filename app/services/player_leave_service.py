@@ -5,6 +5,7 @@ Rules (product):
 - RUNNING / VOTING: mark ``left_mid_game``; if the last active spy is gone →
   citizens win; if active players drop below ``min_players`` → draw.
 - AWAITING_FINAL_GUESS: if the eliminated spy leaves → citizens win.
+- Bot demoted from admin → cancel live game (middleware would otherwise stick it).
 """
 
 from __future__ import annotations
@@ -29,6 +30,11 @@ from app.utils.formatting import (
     user_mention,
 )
 from app.utils.logging import get_logger
+from app.utils.telegram_helpers import (
+    safe_delete_message,
+    safe_edit_message_text,
+    safe_send_message,
+)
 
 logger = get_logger(__name__)
 
@@ -78,11 +84,69 @@ async def handle_bot_removed(
     chat_id: int,
 ) -> None:
     """Bot was kicked/removed — drop any live state for this chat silently."""
-    existed = await repo.game_exists(chat_id)
-    if not existed:
+    if not await repo.game_exists(chat_id):
         return
     await repo.force_delete_game(chat_id)
     logger.info("bot_removed_game_cleared", chat_id=chat_id)
+
+
+async def handle_bot_demoted(
+    bot: Bot,
+    repo: GameStateRepository,
+    *,
+    chat_id: int,
+) -> None:
+    """Bot lost admin rights while remaining in the group."""
+    game = await repo.get_game(chat_id)
+    if game is None:
+        await safe_send_message(
+            bot,
+            chat_id,
+            force_rtl(
+                "⚠️ دسترسی ادمین ربات برداشته شد.\n"
+                "تا وقتی دوباره ادمین نشود، دستورات کار نمی‌کنند."
+            ),
+        )
+        return
+
+    if game.status == GameStatus.LOBBY:
+        for msg_id in (game.lobby_message_id, game.game_message_id):
+            if msg_id is not None:
+                await safe_delete_message(bot, chat_id, msg_id)
+        await repo.force_delete_game(chat_id)
+        await safe_send_message(
+            bot,
+            chat_id,
+            force_rtl(
+                "⚠️ دسترسی ادمین ربات برداشته شد؛ لابی حذف شد.\n"
+                "بعد از ادمین کردن دوباره /newgame بزنید."
+            ),
+        )
+        logger.info("bot_demoted_lobby_cleared", chat_id=chat_id)
+        return
+
+    await end_game(
+        bot,
+        repo,
+        game,
+        winner=GameWinner.DRAW,
+        reason=GameEndReason.CANCELLED,
+        announce=False,
+    )
+    await safe_send_message(
+        bot,
+        chat_id,
+        force_rtl(
+            "⚠️ دسترسی ادمین ربات وسط بازی برداشته شد؛ بازی لغو شد.\n"
+            "بدون ادمین، ربات نمی‌تواند خروج اعضا و پنل‌ها را درست مدیریت کند.\n"
+            "ربات را دوباره ادمین کنید و /newgame بزنید."
+        ),
+    )
+    logger.info(
+        "bot_demoted_game_cancelled",
+        chat_id=chat_id,
+        previous_status=game.status.value,
+    )
 
 
 async def _handle_lobby_leave(
@@ -97,20 +161,14 @@ async def _handle_lobby_leave(
 
     if user_id == game.creator_id:
         for msg_id in (game.lobby_message_id, game.game_message_id):
-            if msg_id is None:
-                continue
-            try:
-                await bot.delete_message(chat_id, msg_id)
-            except Exception:  # noqa: BLE001
-                pass
+            if msg_id is not None:
+                await safe_delete_message(bot, chat_id, msg_id)
         await repo.force_delete_game(chat_id)
-        try:
-            await bot.send_message(
-                chat_id,
-                force_rtl(f"🗑 {mention} (سازنده بازی) از گروه خارج شد؛ بازی حذف شد."),
-            )
-        except Exception:  # noqa: BLE001
-            pass
+        await safe_send_message(
+            bot,
+            chat_id,
+            force_rtl(f"🗑 {mention} (سازنده بازی) از گروه خارج شد؛ بازی حذف شد."),
+        )
         logger.info("lobby_creator_left", chat_id=chat_id, user_id=user_id)
         return
 
@@ -123,28 +181,20 @@ async def _handle_lobby_leave(
     if game is None:
         return
 
-    try:
-        await bot.send_message(
-            chat_id,
-            force_rtl(f"👋 {mention} از گروه خارج شد و از لابی حذف شد."),
-        )
-    except Exception:  # noqa: BLE001
-        pass
+    await safe_send_message(
+        bot,
+        chat_id,
+        force_rtl(f"👋 {mention} از گروه خارج شد و از لابی حذف شد."),
+    )
 
     if game.lobby_message_id is not None:
-        try:
-            # Re-render lobby list on the existing panel if we can find it —
-            # safest is send is already done; edit by fetching is hard without
-            # a Message object. Skip panel edit if we only have an id unless
-            # we use bot.edit_message_text.
-            await bot.edit_message_text(
-                build_lobby_message_text(game),
-                chat_id=chat_id,
-                message_id=game.lobby_message_id,
-                reply_markup=build_lobby_keyboard(chat_id),
-            )
-        except Exception:  # noqa: BLE001
-            pass
+        await safe_edit_message_text(
+            bot,
+            chat_id,
+            game.lobby_message_id,
+            build_lobby_message_text(game),
+            reply_markup=build_lobby_keyboard(chat_id),
+        )
 
     logger.info("lobby_player_left", chat_id=chat_id, user_id=user_id)
 
@@ -158,22 +208,19 @@ async def _handle_in_game_leave(
 ) -> None:
     chat_id = game.chat_id
     mention = user_mention(user_id, display_name)
-    was_spy = game.get_player(user_id) is not None and (
-        game.get_player(user_id).role == PlayerRole.SPY  # type: ignore[union-attr]
-    )
+    player = game.get_player(user_id)
+    was_spy = player is not None and player.role == PlayerRole.SPY
 
     await repo.mark_left_mid_game(chat_id, user_id)
     game = await repo.get_game(chat_id)
     if game is None:
         return
 
-    try:
-        await bot.send_message(
-            chat_id,
-            force_rtl(f"🚪 {mention} از گروه خارج شد و از بازی کنار گذاشته شد."),
-        )
-    except Exception:  # noqa: BLE001
-        pass
+    await safe_send_message(
+        bot,
+        chat_id,
+        force_rtl(f"🚪 {mention} از گروه خارج شد و از بازی کنار گذاشته شد."),
+    )
 
     active = _active_players(game)
     min_players = get_settings().min_players
@@ -204,24 +251,17 @@ async def _handle_in_game_leave(
             reason=GameEndReason.SPY_LEFT_GROUP,
             announce=True,
         )
-        logger.info(
-            "last_spy_left_citizens_win",
-            chat_id=chat_id,
-            user_id=user_id,
-        )
+        logger.info("last_spy_left_citizens_win", chat_id=chat_id, user_id=user_id)
         return
 
-    # Still playable — if voting, refresh the panel without the leaver.
     if game.status == GameStatus.VOTING and game.game_message_id is not None:
-        try:
-            await bot.edit_message_text(
-                build_voting_message_text(game),
-                chat_id=chat_id,
-                message_id=game.game_message_id,
-                reply_markup=build_voting_keyboard(chat_id, active),
-            )
-        except Exception:  # noqa: BLE001
-            pass
+        await safe_edit_message_text(
+            bot,
+            chat_id,
+            game.game_message_id,
+            build_voting_message_text(game),
+            reply_markup=build_voting_keyboard(chat_id, active),
+        )
 
     logger.info(
         "player_left_mid_game_continue",
@@ -245,17 +285,14 @@ async def _handle_final_guess_leave(
 
     mention = user_mention(user_id, display_name)
 
-    # The voted-out spy must send the final guess; if they leave, citizens win.
     if player.role == PlayerRole.SPY and player.eliminated:
-        try:
-            await bot.send_message(
-                chat_id=game.chat_id,
-                text=force_rtl(
-                    f"🚪 {mention} (جاسوس) از گروه خارج شد و فرصت حدس را از دست داد."
-                ),
-            )
-        except Exception:  # noqa: BLE001
-            pass
+        await safe_send_message(
+            bot,
+            game.chat_id,
+            force_rtl(
+                f"🚪 {mention} (جاسوس) از گروه خارج شد و فرصت حدس را از دست داد."
+            ),
+        )
         await end_game(
             bot,
             repo,
@@ -272,87 +309,8 @@ async def _handle_final_guess_leave(
         return
 
     await repo.mark_left_mid_game(game.chat_id, user_id)
-    try:
-        await bot.send_message(
-            game.chat_id,
-            force_rtl(f"🚪 {mention} از گروه خارج شد."),
-        )
-    except Exception:  # noqa: BLE001
-        pass
-
-
-async def handle_bot_demoted(
-    bot: Bot,
-    repo: GameStateRepository,
-    *,
-    chat_id: int,
-) -> None:
-    """Bot lost admin rights mid-session.
-
-    Without admin status, leave tracking and our middleware would leave an
-    in-progress game stuck (votes/buttons blocked). Cancel any live game
-    cleanly and tell the group to re-promote the bot.
-    """
-    game = await repo.get_game(chat_id)
-    if game is None:
-        try:
-            await bot.send_message(
-                chat_id,
-                force_rtl(
-                    "⚠️ دسترسی ادمین ربات برداشته شد.\n"
-                    "تا وقتی دوباره ادمین نشود، دستورات کار نمی‌کنند."
-                ),
-            )
-        except Exception:  # noqa: BLE001
-            pass
-        return
-
-    # Prefer a proper end_game announcement when a match was running.
-    from app.services.game_end_service import end_game
-
-    if game.status == GameStatus.LOBBY:
-        for msg_id in (game.lobby_message_id, game.game_message_id):
-            if msg_id is None:
-                continue
-            try:
-                await bot.delete_message(chat_id, msg_id)
-            except Exception:  # noqa: BLE001
-                pass
-        await repo.force_delete_game(chat_id)
-        try:
-            await bot.send_message(
-                chat_id,
-                force_rtl(
-                    "⚠️ دسترسی ادمین ربات برداشته شد؛ لابی حذف شد.\n"
-                    "بعد از ادمین کردن دوباره /newgame بزنید."
-                ),
-            )
-        except Exception:  # noqa: BLE001
-            pass
-        logger.info("bot_demoted_lobby_cleared", chat_id=chat_id)
-        return
-
-    await end_game(
+    await safe_send_message(
         bot,
-        repo,
-        game,
-        winner=GameWinner.DRAW,
-        reason=GameEndReason.CANCELLED,
-        announce=False,
-    )
-    try:
-        await bot.send_message(
-            chat_id,
-            force_rtl(
-                "⚠️ دسترسی ادمین ربات وسط بازی برداشته شد؛ بازی لغو شد.\n"
-                "بدون ادمین، ربات نمی‌تواند خروج اعضا و پنل‌ها را درست مدیریت کند.\n"
-                "ربات را دوباره ادمین کنید و /newgame بزنید."
-            ),
-        )
-    except Exception:  # noqa: BLE001
-        pass
-    logger.info(
-        "bot_demoted_game_cancelled",
-        chat_id=chat_id,
-        previous_status=game.status.value,
+        game.chat_id,
+        force_rtl(f"🚪 {mention} از گروه خارج شد."),
     )
