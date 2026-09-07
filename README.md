@@ -4,6 +4,9 @@ A group-based word game bot for Telegram (Persian UI). One player is the **spy**
 
 Built with **Python 3.12**, **aiogram 3**, and **Redis**.
 
+> Live version of this bot : [@spyfallgamerobot](https://t.me/spyfallgamerobot)
+
+> Persian version of this document : [README.fa.md](README.fa.md)
 ---
 
 ## Features
