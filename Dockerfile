@@ -18,9 +18,10 @@ FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/venv/bin:$PATH"
+    PATH="/venv/bin:$PATH" \
+    LOG_DIR=/app/logs
 
-# Create a non-root user to run the bot process
+# Non-root user for the bot process (entrypoint drops to this user).
 RUN groupadd -r spybot && useradd -r -g spybot spybot
 
 WORKDIR /app
@@ -30,9 +31,13 @@ COPY app ./app
 COPY data ./data
 COPY migrations ./migrations
 COPY alembic.ini ./alembic.ini
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 
-RUN mkdir -p /app/logs && chown -R spybot:spybot /app/logs
+RUN chmod +x /docker-entrypoint.sh \
+    && mkdir -p /app/logs \
+    && chown -R spybot:spybot /app/logs
 
-USER spybot
-
+# Start as root so the entrypoint can chown the mounted logs volume,
+# then it switches to user ``spybot`` before running the bot.
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["python", "-m", "app.main"]
