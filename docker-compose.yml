@@ -42,6 +42,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      LOG_DIR: /app/logs
+    volumes:
+      - ./logs:/app/logs
     depends_on:
       # postgres:
       #   condition: service_healthy

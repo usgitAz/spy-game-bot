@@ -1,13 +1,14 @@
 """Application entrypoint: wires everything together and starts polling."""
 
 import asyncio
+from pathlib import Path
 
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
 from app.bot.bootstrap import create_bot, create_dispatcher
-from app.config.settings import get_settings
+from app.config.settings import BASE_DIR, get_settings
 from app.handlers.admin import router as admin_router
 from app.handlers.chat_member import router as chat_member_router
 from app.handlers.create_game import router as create_game_router
@@ -21,8 +22,6 @@ from app.repositories.game_state_repository import GameStateRepository
 from app.services.game_recovery_service import start_game_recovery_sweeper
 from app.utils.logging import configure_logging, get_logger
 from app.utils.redis_client import close_redis, get_redis
-
-logger = get_logger(__name__)
 
 root_router = Router(name="root")
 
@@ -38,24 +37,37 @@ async def handle_start(message: Message) -> None:
 
 async def on_startup() -> None:
     """Verify external dependencies required at runtime (Redis only for now)."""
+    log = get_logger(__name__)
     # TODO: re-enable Postgres connectivity check when game archival
     # and user stats are implemented.
     redis = get_redis()
     await redis.ping()
-    logger.info("redis_connection_ok")
-    logger.info("startup_complete")
+    log.info("redis_connection_ok")
+    log.info("startup_complete")
 
 
 async def on_shutdown() -> None:
     """Gracefully release external resources."""
+    log = get_logger(__name__)
     await close_redis()
     # TODO: dispose SQLAlchemy engine when Postgres is re-enabled.
-    logger.info("shutdown_complete")
+    log.info("shutdown_complete")
 
 
 async def main() -> None:
     settings = get_settings()
-    configure_logging(settings.log_level)
+
+    log_path = Path(settings.log_dir)
+    if not log_path.is_absolute():
+        log_path = BASE_DIR / log_path
+
+    configure_logging(
+        settings.log_level,
+        logs_dir=log_path,
+        max_bytes=settings.log_max_bytes,
+        backup_count=settings.log_backup_count,
+    )
+    log = get_logger(__name__)
 
     bot = create_bot(settings)
     dispatcher = create_dispatcher(settings)
@@ -87,7 +99,7 @@ async def main() -> None:
     # Redis-backed timer recovery (survives process restarts).
     start_game_recovery_sweeper(bot, GameStateRepository(get_redis()))
 
-    logger.info("bot_starting")
+    log.info("bot_starting", logs_dir=str(log_path))
     await bot.delete_webhook(drop_pending_updates=True)
     # Ensure chat_member updates are received (leave / kick / bot removed).
     await dispatcher.start_polling(

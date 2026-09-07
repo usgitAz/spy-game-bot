@@ -21,11 +21,14 @@ services:
       # POSTGRES_HOST: postgres
       REDIS_HOST: redis
       LOG_LEVEL: DEBUG
-    extra_hosts: #for using proxy and access the proxy port if TELEGRAM_PROXY is set on .env
+      LOG_DIR: /app/logs
+    extra_hosts:
+      #for using proxy and access the proxy port if TELEGRAM_PROXY is set on .env
       - "host.docker.internal:host-gateway"
     volumes:
       - ./app:/app/app
       - ./data:/app/data
+      - ./logs:/app/logs
       - ./migrations:/app/migrations
       - ./alembic.ini:/app/alembic.ini
     depends_on:

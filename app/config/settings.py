@@ -66,6 +66,9 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
+    log_dir: str = "logs"  # relative to project root, or absolute path
+    log_max_mb: float = 20.0  # max size of each log file in megabytes
+    log_backup_count: int = 3
 
     @property
     def postgres_dsn(self) -> str:
@@ -79,6 +82,11 @@ class Settings(BaseSettings):
     def redis_dsn(self) -> str:
         """Redis connection URL."""
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
+
+    @property
+    def log_max_bytes(self) -> int:
+        """Rotating-file max size derived from ``log_max_mb`` (human-friendly env)."""
+        return max(1, int(self.log_max_mb * 1024 * 1024))
 
 
 @lru_cache

@@ -85,3 +85,7 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+#app logs
+logs/
+*.log

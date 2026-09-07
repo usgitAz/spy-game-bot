@@ -31,6 +31,8 @@ COPY data ./data
 COPY migrations ./migrations
 COPY alembic.ini ./alembic.ini
 
+RUN mkdir -p /app/logs && chown -R spybot:spybot /app/logs
+
 USER spybot
 
 CMD ["python", "-m", "app.main"]
