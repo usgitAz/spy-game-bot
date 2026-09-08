@@ -231,12 +231,22 @@ class GameStateRepository:
             },
         )
 
-    async def start_game(self, chat_id: int, word: str, round_seconds: int) -> float:
+    async def start_game(
+        self,
+        chat_id: int,
+        word: str,
+        round_seconds: int,
+        *,
+        spies_count: int,
+    ) -> float:
         """Transition LOBBY -> RUNNING, assign the word, and set the deadline.
 
         Role assignment happens in the service layer (it needs randomness
         and business rules like the 2-spy threshold); this only persists
         the resulting roles via `set_player_roles`.
+
+        ``spies_count`` is the *actual* number assigned at start (after the
+        7+/two-spy rule), so Redis meta stays consistent for UI/archive.
         """
         now = time.time()
         ends_at = now + round_seconds
@@ -247,6 +257,7 @@ class GameStateRepository:
                 "word": word,
                 "started_at": repr(now),
                 "ends_at": repr(ends_at),
+                "spies_count": str(spies_count),
             },
         )
         return ends_at

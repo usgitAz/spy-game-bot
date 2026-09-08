@@ -11,6 +11,7 @@ Steps:
 from __future__ import annotations
 
 from app.domain.game_state import GameState, GameStatus
+from app.models.enums import PlayerRole
 from app.repositories.game_state_repository import GameStateRepository
 from app.services.role_assignment import assign_roles
 from app.services.word_bank import pick_word
@@ -59,9 +60,13 @@ async def start_game(
 
     word = pick_word()
     roles = assign_roles(game.players, game.settings)
+    actual_spies = sum(1 for p in roles.values() if p.role == PlayerRole.SPY)
 
     ends_at = await repo.start_game(
-        chat_id, word=word, round_seconds=game.settings.round_seconds
+        chat_id,
+        word=word,
+        round_seconds=game.settings.round_seconds,
+        spies_count=actual_spies,
     )
     await repo.set_player_roles(chat_id, roles)
 
