@@ -47,6 +47,7 @@ class BotAdminMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         bot: Bot = data["bot"]
+        redis = data["redis"]
         chat = None
         is_callback = False
 
@@ -60,7 +61,7 @@ class BotAdminMiddleware(BaseMiddleware):
         if chat is None or not _is_group(chat.type):
             return await handler(event, data)
 
-        if await bot_is_group_admin(bot, chat.id):
+        if await bot_is_group_admin(bot, redis, chat.id):
             return await handler(event, data)
 
         logger.info("blocked_not_admin", chat_id=chat.id)

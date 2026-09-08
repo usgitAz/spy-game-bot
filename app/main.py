@@ -76,6 +76,9 @@ async def main() -> None:
     # that declares a `repo: GameStateRepository` parameter.
     dispatcher["repo"] = GameStateRepository(get_redis())
 
+    # Raw Redis client for middlewares/utilities (e.g. bot-admin cache).
+    dispatcher["redis"] = get_redis()
+
     # Rate-limit first (cheap), then require bot admin in groups.
     dispatcher.message.middleware(ThrottleMiddleware())
     dispatcher.callback_query.middleware(ThrottleMiddleware())

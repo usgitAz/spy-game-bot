@@ -3,6 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -26,8 +27,20 @@ class Settings(BaseSettings):
     # Telegram
     bot_token: str
 
-    # Telegram proxy
+    # production | development | local
+    app_env: str = "production"
+
+    # Telegram proxy (local/dev only; ignored in production)
     telegram_proxy: str | None = None
+
+    @field_validator("telegram_proxy", mode="before")
+    @classmethod
+    def empty_proxy_as_none(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v.strip() if isinstance(v, str) else v
 
     # PostgreSQL — optional / unused until next stage (archival + stats).
     # Bot does not connect at startup; live state is Redis-only.
@@ -56,6 +69,11 @@ class Settings(BaseSettings):
     # Anti-spam: min seconds between accepted events per user.
     throttle_callback_seconds: float = 0.7
     throttle_command_seconds: float = 3.0
+
+    # Safety-net TTL for cached bot-admin status per chat
+    # (see app.utils.bot_permissions). Cache is refreshed proactively
+    # on my_chat_member; this TTL only covers missed updates.
+    bot_admin_cache_ttl_seconds: int = 600
 
     # Safety-net TTL applied to a game's Redis keys so a crashed bot
     # doesn't leave orphaned state forever. This is intentionally much

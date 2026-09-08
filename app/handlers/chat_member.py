@@ -10,7 +10,14 @@ from app.services.player_leave_service import (
     handle_bot_removed,
     handle_member_left,
 )
+from app.utils.bot_permissions import (
+    BOT_NOT_ADMIN_TEXT,
+    invalidate_admin_cache,
+    set_admin_cache,
+)
+from app.utils.formatting import force_rtl
 from app.utils.logging import get_logger
+from app.utils.redis_client import get_redis
 
 logger = get_logger(__name__)
 router = Router(name="chat_member")
@@ -21,6 +28,18 @@ _WAS_IN = {
     ChatMemberStatus.ADMINISTRATOR,
     ChatMemberStatus.CREATOR,
     ChatMemberStatus.RESTRICTED,
+}
+_ADMIN = {
+    ChatMemberStatus.ADMINISTRATOR,
+    ChatMemberStatus.CREATOR,
+    "administrator",
+    "creator",
+}
+_NOT_ADMIN = {
+    ChatMemberStatus.MEMBER,
+    ChatMemberStatus.RESTRICTED,
+    "member",
+    "restricted",
 }
 
 
@@ -66,11 +85,9 @@ async def on_my_chat_member(
     event: ChatMemberUpdated, repo: GameStateRepository
 ) -> None:
     """Bot added/removed or rights changed in a group."""
-    from app.utils.bot_permissions import BOT_NOT_ADMIN_TEXT
-    from app.utils.formatting import force_rtl
-
     old_status = event.old_chat_member.status
     new_status = event.new_chat_member.status
+    redis = get_redis()
 
     # Bot left / kicked → clear live game state.
     if _is_leave_transition(event):
@@ -80,22 +97,12 @@ async def on_my_chat_member(
             new_status=str(new_status),
         )
         await handle_bot_removed(event.bot, repo, chat_id=event.chat.id)
+        # Drop cache; a fresh my_chat_member will re-seed if bot is re-added.
+        await invalidate_admin_cache(redis, event.chat.id)
         return
 
     # Admin rights removed while bot stays in the group.
-    _admin = {
-        ChatMemberStatus.ADMINISTRATOR,
-        ChatMemberStatus.CREATOR,
-        "administrator",
-        "creator",
-    }
-    _not_admin = {
-        ChatMemberStatus.MEMBER,
-        ChatMemberStatus.RESTRICTED,
-        "member",
-        "restricted",
-    }
-    if old_status in _admin and new_status in _not_admin:
+    if old_status in _ADMIN and new_status in _NOT_ADMIN:
         logger.info(
             "bot_demoted",
             chat_id=event.chat.id,
@@ -103,19 +110,16 @@ async def on_my_chat_member(
             new_status=str(new_status),
         )
         await handle_bot_demoted(event.bot, repo, chat_id=event.chat.id)
+        await set_admin_cache(redis, event.chat.id, False)
         return
 
     # Bot joined as a normal member (not admin) → explain the requirement.
     joined_as_member = (
         old_status in {ChatMemberStatus.LEFT, ChatMemberStatus.KICKED}
         or str(old_status) in ("left", "kicked")
-    ) and new_status in {
-        ChatMemberStatus.MEMBER,
-        ChatMemberStatus.RESTRICTED,
-        "member",
-        "restricted",
-    }
+    ) and new_status in _NOT_ADMIN
     if joined_as_member:
+        await set_admin_cache(redis, event.chat.id, False)
         try:
             await event.bot.send_message(event.chat.id, force_rtl(BOT_NOT_ADMIN_TEXT))
         except Exception:  # noqa: BLE001
@@ -123,18 +127,9 @@ async def on_my_chat_member(
         return
 
     # Promoted to admin — short confirmation.
-    became_admin = new_status in {
-        ChatMemberStatus.ADMINISTRATOR,
-        ChatMemberStatus.CREATOR,
-        "administrator",
-        "creator",
-    } and old_status not in {
-        ChatMemberStatus.ADMINISTRATOR,
-        ChatMemberStatus.CREATOR,
-        "administrator",
-        "creator",
-    }
+    became_admin = new_status in _ADMIN and old_status not in _ADMIN
     if became_admin:
+        await set_admin_cache(redis, event.chat.id, True)
         try:
             await event.bot.send_message(
                 event.chat.id,
@@ -145,3 +140,7 @@ async def on_my_chat_member(
             )
         except Exception:  # noqa: BLE001
             pass
+        return
+
+    # Any other status change still syncs cache from the update we already have.
+    await set_admin_cache(redis, event.chat.id, new_status in _ADMIN)
