@@ -1,10 +1,10 @@
 """Orchestrate the transition from LOBBY → RUNNING.
 
 Steps:
-1. Validate the lobby is still startable.
-2. Pick a random word from the bank.
-3. Assign spy/citizen roles.
-4. Persist word + roles + RUNNING status + deadline in Redis.
+1. Validate the lobby is still startable (read).
+2. Atomically claim LOBBY → STARTING (only one concurrent Start wins).
+3. Pick a random word and assign spy/citizen roles.
+4. Persist roles, then STARTING → RUNNING with word + deadline.
 5. Return the updated GameState so the handler can render the panel.
 """
 
@@ -28,6 +28,10 @@ class NotInLobbyError(GameStartError):
     pass
 
 
+class AlreadyStartingError(GameStartError):
+    """Another concurrent start already claimed this lobby."""
+
+
 class NotEnoughPlayersError(GameStartError):
     def __init__(self, current: int, required: int) -> None:
         self.current = current
@@ -46,7 +50,7 @@ async def start_game(
     requester_id: int,
     min_players: int,
 ) -> GameState:
-    """Validate, assign roles/word, and flip the game to RUNNING.
+    """Validate, claim start, assign roles/word, and flip the game to RUNNING.
 
     Raises one of the ``GameStartError`` subclasses on validation failure.
     """
@@ -58,17 +62,21 @@ async def start_game(
     if game.player_count < min_players:
         raise NotEnoughPlayersError(game.player_count, min_players)
 
+    # Atomic claim: second concurrent Start sees status != lobby and loses.
+    if not await repo.try_claim_start(chat_id):
+        raise AlreadyStartingError(chat_id)
+
     word = pick_word()
     roles = assign_roles(game.players, game.settings)
     actual_spies = sum(1 for p in roles.values() if p.role == PlayerRole.SPY)
 
-    ends_at = await repo.start_game(
+    await repo.set_player_roles(chat_id, roles)
+    ends_at = await repo.complete_start(
         chat_id,
         word=word,
         round_seconds=game.settings.round_seconds,
         spies_count=actual_spies,
     )
-    await repo.set_player_roles(chat_id, roles)
 
     # Re-read so the caller gets a fully consistent snapshot.
     updated = await repo.get_game(chat_id)

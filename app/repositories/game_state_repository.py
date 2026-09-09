@@ -73,6 +73,15 @@ class GameStateRepository:
         self._begin_voting_script: AsyncScript = redis.register_script(
             lua_scripts.BEGIN_VOTING
         )
+        self._claim_start_script: AsyncScript = redis.register_script(
+            lua_scripts.CLAIM_START
+        )
+        self._complete_start_script: AsyncScript = redis.register_script(
+            lua_scripts.COMPLETE_START
+        )
+        self._revert_voting_script: AsyncScript = redis.register_script(
+            lua_scripts.REVERT_VOTING_TO_RUNNING
+        )
 
     # Creation / deletion
 
@@ -234,7 +243,15 @@ class GameStateRepository:
             },
         )
 
-    async def start_game(
+    async def try_claim_start(self, chat_id: int) -> bool:
+        """Atomically LOBBY → STARTING. Only one concurrent start wins."""
+        result = await self._claim_start_script(
+            keys=[redis_keys.meta_key(chat_id)],
+            args=[],
+        )
+        return int(result) == 1
+
+    async def complete_start(
         self,
         chat_id: int,
         word: str,
@@ -242,28 +259,27 @@ class GameStateRepository:
         *,
         spies_count: int,
     ) -> float:
-        """Transition LOBBY -> RUNNING, assign the word, and set the deadline.
+        """Atomically STARTING → RUNNING with word, deadline, spies_count.
 
-        Role assignment happens in the service layer (it needs randomness
-        and business rules like the 2-spy threshold); this only persists
-        the resulting roles via `set_player_roles`.
-
-        ``spies_count`` is the *actual* number assigned at start (after the
-        7+/two-spy rule), so Redis meta stays consistent for UI/archive.
+        Call only after a successful ``try_claim_start``. Returns ``ends_at``.
         """
         now = time.time()
         ends_at = now + round_seconds
-        await self._redis.hset(
-            redis_keys.meta_key(chat_id),
-            mapping={
-                "status": GameStatus.RUNNING.value,
-                "word": word,
-                "started_at": repr(now),
-                "ends_at": repr(ends_at),
-                "spies_count": str(spies_count),
-            },
+        result = await self._complete_start_script(
+            keys=[redis_keys.meta_key(chat_id)],
+            args=[word, repr(now), repr(ends_at), str(spies_count)],
         )
+        if int(result) != 1:
+            raise GameNotFoundError(chat_id)
         return ends_at
+
+    async def revert_voting_to_running(self, chat_id: int) -> bool:
+        """If status is VOTING, set back to RUNNING (panel post failed)."""
+        result = await self._revert_voting_script(
+            keys=[redis_keys.meta_key(chat_id)],
+            args=[],
+        )
+        return int(result) == 1
 
     async def set_status(self, chat_id: int, status: GameStatus) -> None:
         await self._redis.hset(redis_keys.meta_key(chat_id), "status", status.value)

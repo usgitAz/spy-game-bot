@@ -21,6 +21,9 @@ class GameStatus(enum.StrEnum):
     LOBBY = "lobby"
     """Game created, waiting for players to join and the creator to start it."""
 
+    STARTING = "starting"
+    """Creator claimed start; roles/word are being assigned (brief intermediate)."""
+
     RUNNING = "running"
     """Round in progress; players are discussing and the spy may guess."""
 

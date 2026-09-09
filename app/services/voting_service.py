@@ -101,6 +101,8 @@ async def open_voting_phase(
     sent = await safe_send_message(bot, chat_id, text, reply_markup=keyboard)
     if sent is None:
         logger.error("open_voting_panel_failed", chat_id=chat_id)
+        # State already VOTING; roll back so recovery can retry opening the panel.
+        await repo.revert_voting_to_running(chat_id)
         return False
 
     await repo.set_message_id(chat_id, game_message_id=sent.message_id)

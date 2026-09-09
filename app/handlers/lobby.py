@@ -24,6 +24,7 @@ from app.repositories.game_state_repository import (
     NotInLobbyError,
 )
 from app.services.game_start_service import (
+    AlreadyStartingError,
     NotCreatorError,
     NotEnoughPlayersError,
     NotInLobbyError as GameStartNotInLobbyError,
@@ -158,6 +159,9 @@ async def _handle_start(
         )
     except GameStartNotInLobbyError:
         await callback.answer("این بازی دیگر در مرحله‌ی لابی نیست.", show_alert=True)
+        return
+    except AlreadyStartingError:
+        await callback.answer("بازی در حال شروع است، لطفاً صبر کنید.", show_alert=True)
         return
     except NotCreatorError:
         await callback.answer(

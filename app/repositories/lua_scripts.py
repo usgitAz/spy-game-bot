@@ -121,3 +121,46 @@ end
 redis.call('HSET', KEYS[1], 'status', 'voting', 'voting_ends_at', ARGV[1])
 return 1
 """
+
+
+# KEYS[1] = meta key
+# Returns: 1 if LOBBY → STARTING claimed, 0 otherwise
+CLAIM_START = """
+local status = redis.call('HGET', KEYS[1], 'status')
+if status ~= 'lobby' then
+    return 0
+end
+redis.call('HSET', KEYS[1], 'status', 'starting')
+return 1
+"""
+
+# KEYS[1] = meta key
+# ARGV: word, started_at, ends_at, spies_count
+# Returns: 1 if STARTING → RUNNING, 0 otherwise
+COMPLETE_START = """
+local status = redis.call('HGET', KEYS[1], 'status')
+if status ~= 'starting' then
+    return 0
+end
+redis.call('HSET', KEYS[1],
+    'status', 'running',
+    'word', ARGV[1],
+    'started_at', ARGV[2],
+    'ends_at', ARGV[3],
+    'spies_count', ARGV[4]
+)
+return 1
+"""
+
+# KEYS[1] = meta key
+# Revert VOTING → RUNNING if panel post failed (so recovery can retry).
+# Returns: 1 if reverted, 0 otherwise
+REVERT_VOTING_TO_RUNNING = """
+local status = redis.call('HGET', KEYS[1], 'status')
+if status ~= 'voting' then
+    return 0
+end
+redis.call('HSET', KEYS[1], 'status', 'running')
+-- keep ends_at in the past so recovery retries open_voting
+return 1
+"""
