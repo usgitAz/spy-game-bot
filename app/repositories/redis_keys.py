@@ -27,6 +27,11 @@ def votes_key(chat_id: int) -> str:
     return f"{_PREFIX}:{chat_id}:votes"
 
 
+def resolve_lock_key(chat_id: int) -> str:
+    """Short-lived NX lock so only one resolve_voting runs per chat."""
+    return f"{_PREFIX}:{chat_id}:resolve_lock"
+
+
 def all_keys(chat_id: int) -> list[str]:
     """All Redis keys belonging to one chat's active game (for atomic cleanup)."""
     return [
@@ -34,4 +39,5 @@ def all_keys(chat_id: int) -> list[str]:
         players_key(chat_id),
         order_key(chat_id),
         votes_key(chat_id),
+        resolve_lock_key(chat_id),
     ]

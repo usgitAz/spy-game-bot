@@ -314,7 +314,7 @@ class GameStateRepository:
 
     async def try_acquire_resolve_lock(self, chat_id: int) -> bool:
         """NX lock so only one resolve_voting runs per chat (timer vs all-voted)."""
-        key = f"spy:game:{chat_id}:resolve_lock"
+        key = redis_keys.resolve_lock_key(chat_id)
         return bool(await self._redis.set(key, "1", nx=True, ex=120))
 
     async def try_begin_voting(self, chat_id: int, voting_ends_at: float) -> bool:

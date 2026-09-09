@@ -89,7 +89,8 @@ local creator_id = redis.call('HGET', KEYS[1], 'creator_id')
 if creator_id ~= ARGV[1] and ARGV[2] ~= '1' then
     return -2
 end
-redis.call('DEL', KEYS[1], KEYS[2], KEYS[3], KEYS[4])
+-- Delete every key passed in KEYS (meta, players, order, votes, locks, …)
+redis.call('DEL', unpack(KEYS))
 return 1
 """
 
