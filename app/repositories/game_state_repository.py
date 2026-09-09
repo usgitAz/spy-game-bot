@@ -70,6 +70,9 @@ class GameStateRepository:
             lua_scripts.DELETE_GAME
         )
         self._vote_script: AsyncScript = redis.register_script(lua_scripts.RECORD_VOTE)
+        self._begin_voting_script: AsyncScript = redis.register_script(
+            lua_scripts.BEGIN_VOTING
+        )
 
     # Creation / deletion
 
@@ -313,6 +316,18 @@ class GameStateRepository:
         """NX lock so only one resolve_voting runs per chat (timer vs all-voted)."""
         key = f"spy:game:{chat_id}:resolve_lock"
         return bool(await self._redis.set(key, "1", nx=True, ex=120))
+
+    async def try_begin_voting(self, chat_id: int, voting_ends_at: float) -> bool:
+        """Atomically transition RUNNING → VOTING (compare-and-swap on status).
+
+        Returns True only for the first caller; concurrent timer/recovery
+        lose the race and must not post a second voting panel.
+        """
+        result = await self._begin_voting_script(
+            keys=[redis_keys.meta_key(chat_id)],
+            args=[repr(voting_ends_at)],
+        )
+        return int(result) == 1
 
     async def clear_votes(self, chat_id: int) -> None:
         """Drop all votes (used when starting a runoff round)."""

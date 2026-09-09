@@ -107,3 +107,16 @@ end
 redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
 return 1
 """
+
+
+# KEYS[1] = meta key
+# ARGV[1] = voting_ends_at (string repr of float)
+# Returns: 1 if transitioned RUNNING → VOTING, 0 if status was not running
+BEGIN_VOTING = """
+local status = redis.call('HGET', KEYS[1], 'status')
+if status ~= 'running' then
+    return 0
+end
+redis.call('HSET', KEYS[1], 'status', 'voting', 'voting_ends_at', ARGV[1])
+return 1
+"""

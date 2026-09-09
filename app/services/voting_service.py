@@ -66,6 +66,54 @@ def tally_votes(candidates: list[PlayerState], votes: dict[int, int]) -> VoteTal
     return VoteTally(votes_for=votes_for, top_ids=top_ids, max_votes=max_votes)
 
 
+async def open_voting_phase(
+    bot: Bot,
+    repo: GameStateRepository,
+    chat_id: int,
+    *,
+    fallback_message_id: int | None = None,
+) -> bool:
+    """Transition RUNNING → VOTING once, post the voting panel, arm timeout.
+
+    Safe under concurrent round-timer and recovery-sweeper: only the first
+    caller that wins the Redis CAS posts a panel. Returns True if this
+    caller opened voting, False if another path already did.
+    """
+    from app.services.voting_timeout_service import start_voting_timeout
+
+    settings = get_settings()
+    voting_ends = time.time() + settings.voting_timeout_seconds
+    if not await repo.try_begin_voting(chat_id, voting_ends):
+        logger.info("begin_voting_skipped_already_transitioned", chat_id=chat_id)
+        return False
+
+    game = await repo.get_game(chat_id)
+    if game is None:
+        return False
+
+    old_message_id = game.game_message_id or fallback_message_id
+    if old_message_id is not None:
+        await safe_delete_message(bot, chat_id, old_message_id)
+
+    active = [p for p in game.players if not p.eliminated and not p.left_mid_game]
+    text = build_voting_message_text(game)
+    keyboard = build_voting_keyboard(chat_id, active)
+    sent = await safe_send_message(bot, chat_id, text, reply_markup=keyboard)
+    if sent is None:
+        logger.error("open_voting_panel_failed", chat_id=chat_id)
+        return False
+
+    await repo.set_message_id(chat_id, game_message_id=sent.message_id)
+    start_voting_timeout(bot, repo, chat_id)
+    logger.info(
+        "voting_phase_opened",
+        chat_id=chat_id,
+        active_players=len(active),
+        voting_message_id=sent.message_id,
+    )
+    return True
+
+
 async def resolve_voting(
     bot: Bot,
     repo: GameStateRepository,
@@ -192,7 +240,9 @@ async def _apply_elimination(
             await safe_send_message(
                 bot,
                 chat_id,
-                force_rtl(f"❌ {elim_mention} با بیشترین رای اخراج شد، اما شهروندبود."),
+                force_rtl(
+                    f"❌ {elim_mention} با بیشترین رای اخراج شد، اما شهروند بود."
+                ),
             )
         except Exception:  # noqa: BLE001
             pass

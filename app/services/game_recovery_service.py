@@ -15,10 +15,8 @@ from aiogram import Bot
 
 from app.config.settings import get_settings
 from app.domain.game_state import GameStatus
-from app.keyboards import build_voting_keyboard
 from app.models.enums import GameEndReason, GameWinner
 from app.repositories.game_state_repository import GameStateRepository
-from app.utils.formatting import build_voting_message_text
 from app.utils.logging import get_logger
 from app.utils.telegram_helpers import safe_delete_message, safe_send_message
 
@@ -134,26 +132,8 @@ async def _recover_one(bot: Bot, repo: GameStateRepository, chat_id: int) -> boo
 
 async def _open_voting(bot: Bot, repo: GameStateRepository, chat_id: int) -> None:
     """Same outcome as the round-timer worker: RUNNING → VOTING + panel."""
-    from app.services.voting_timeout_service import start_voting_timeout
+    from app.services.voting_service import open_voting_phase
 
-    settings = get_settings()
-    voting_ends = time.time() + settings.voting_timeout_seconds
-    await repo.set_voting_deadline(chat_id, voting_ends)
-
-    game = await repo.get_game(chat_id)
-    if game is None:
-        return
-
-    if game.game_message_id is not None:
-        await safe_delete_message(bot, chat_id, game.game_message_id)
-
-    active = [p for p in game.players if not p.eliminated and not p.left_mid_game]
-    text = build_voting_message_text(game)
-    keyboard = build_voting_keyboard(chat_id, active)
-    sent = await safe_send_message(bot, chat_id, text, reply_markup=keyboard)
-    if sent is None:
-        logger.error("recovery_voting_panel_failed", chat_id=chat_id)
-        return
-    await repo.set_message_id(chat_id, game_message_id=sent.message_id)
-
-    start_voting_timeout(bot, repo, chat_id)
+    opened = await open_voting_phase(bot, repo, chat_id)
+    if opened:
+        logger.info("recovery_opened_voting", chat_id=chat_id)
