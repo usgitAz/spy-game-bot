@@ -247,7 +247,7 @@ class GameStateRepository:
         """Atomically LOBBY → STARTING. Only one concurrent start wins."""
         result = await self._claim_start_script(
             keys=[redis_keys.meta_key(chat_id)],
-            args=[],
+            args=[repr(time.time())],
         )
         return int(result) == 1
 
@@ -435,6 +435,7 @@ class GameStateRepository:
             ),
             word=meta.get("word") or None,
             created_at=float(meta["created_at"]),
+            starting_at=_optional_float(meta.get("starting_at", "")),
             started_at=_optional_float(meta.get("started_at", "")),
             ends_at=_optional_float(meta.get("ends_at", "")),
             voting_ends_at=_optional_float(meta.get("voting_ends_at", "")),

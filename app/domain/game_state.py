@@ -65,6 +65,8 @@ class GameState(BaseModel):
     settings: GameSettings
     word: str | None = None
     created_at: float
+    # When LOBBY→STARTING was claimed; used by recovery stuck-grace.
+    starting_at: float | None = None
     started_at: float | None = None
     ends_at: float | None = None
     voting_ends_at: float | None = None

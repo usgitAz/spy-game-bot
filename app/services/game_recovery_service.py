@@ -71,8 +71,11 @@ async def _recover_one(bot: Bot, repo: GameStateRepository, chat_id: int) -> boo
 
     # --- STARTING stuck (claimed start, process died before RUNNING) ---
     if game.status == GameStatus.STARTING:
-        # Brief window; if still starting after a short grace, clean up.
-        if now >= game.created_at + 60:
+        # Grace from claim time, NOT lobby created_at (lobby may already be old).
+        claimed_at = (
+            game.starting_at if game.starting_at is not None else game.created_at
+        )
+        if now >= claimed_at + 60:
             await repo.force_delete_game(chat_id)
             await safe_send_message(
                 bot,

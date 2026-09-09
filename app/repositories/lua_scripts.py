@@ -130,7 +130,7 @@ local status = redis.call('HGET', KEYS[1], 'status')
 if status ~= 'lobby' then
     return 0
 end
-redis.call('HSET', KEYS[1], 'status', 'starting')
+redis.call('HSET', KEYS[1], 'status', 'starting', 'starting_at', ARGV[1])
 return 1
 """
 
