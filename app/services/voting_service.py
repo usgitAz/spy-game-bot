@@ -133,7 +133,7 @@ async def resolve_voting(
     # Do NOT flip to AWAITING_FINAL_GUESS here — that made the recovery
     # sweeper treat the game as an expired final-guess and announce a
     # citizen win after a legitimate draw.
-    if not await repo.try_acquire_resolve_lock(chat_id):
+    if not await repo.try_acquire_resolve_lock(chat_id, game.voting_round):
         return
 
     candidates = _candidate_pool(game)

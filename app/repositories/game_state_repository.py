@@ -312,9 +312,15 @@ class GameStateRepository:
         player.left_mid_game = True
         await self._redis.hset(players_key, str(user_id), player.model_dump_json())
 
-    async def try_acquire_resolve_lock(self, chat_id: int) -> bool:
-        """NX lock so only one resolve_voting runs per chat (timer vs all-voted)."""
-        key = redis_keys.resolve_lock_key(chat_id)
+    async def try_acquire_resolve_lock(
+        self, chat_id: int, voting_round: int = 1
+    ) -> bool:
+        """NX lock so only one resolve runs for this voting round.
+
+        Scoped by ``voting_round``: runoff (round 2) must not be blocked by
+        the still-TTL'd lock from round 1.
+        """
+        key = redis_keys.resolve_lock_key(chat_id, voting_round)
         return bool(await self._redis.set(key, "1", nx=True, ex=120))
 
     async def try_begin_voting(self, chat_id: int, voting_ends_at: float) -> bool:
