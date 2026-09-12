@@ -263,7 +263,8 @@ async def _apply_elimination(
         return
 
     # Spy voted out → 30s final-guess window.
-    await repo.set_status(chat_id, GameStatus.AWAITING_FINAL_GUESS)
+    # Status+deadline are set atomically inside start_final_guess_window;
+    # do not flip status here or a crash leaves AWAITING without deadline.
     try:
         await safe_send_message(
             bot,

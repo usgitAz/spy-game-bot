@@ -25,16 +25,18 @@ def start_final_guess_window(
     chat_id: int,
     spy_user_id: int,
 ) -> None:
-    """Persist deadline in Redis and schedule the in-process timeout."""
+    """Persist status+deadline atomically, then schedule the in-process timeout.
+
+    Status is only moved to AWAITING_FINAL_GUESS together with
+    ``final_guess_ends_at`` (see ``set_final_guess_deadline``), so a crash
+    cannot leave the game in AWAITING without a deadline for recovery.
+    """
     seconds = get_settings().final_guess_seconds
     ends_at = time.time() + seconds
 
-    async def _arm() -> None:
-        await repo.set_final_guess_deadline(chat_id, ends_at)
-
-    # Fire-and-forget the Redis write, then sleep.
     async def _run() -> None:
         try:
+            # Single Redis HSET: status + final_guess_ends_at together.
             await repo.set_final_guess_deadline(chat_id, ends_at)
             await asyncio.sleep(seconds)
             game = await repo.get_game(chat_id)

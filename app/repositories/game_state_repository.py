@@ -403,6 +403,7 @@ class GameStateRepository:
     async def set_final_guess_deadline(
         self, chat_id: int, final_guess_ends_at: float
     ) -> None:
+        """Atomically set AWAITING_FINAL_GUESS and its deadline together."""
         await self._redis.hset(
             redis_keys.meta_key(chat_id),
             mapping={
