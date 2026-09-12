@@ -82,6 +82,9 @@ class GameStateRepository:
         self._revert_voting_script: AsyncScript = redis.register_script(
             lua_scripts.REVERT_VOTING_TO_RUNNING
         )
+        self._start_runoff_script: AsyncScript = redis.register_script(
+            lua_scripts.START_RUNOFF
+        )
 
     # Creation / deletion
 
@@ -356,18 +359,27 @@ class GameStateRepository:
         await self._redis.delete(redis_keys.votes_key(chat_id))
 
     async def set_vote_runoff(
-        self, chat_id: int, *, round_number: int, candidate_ids: list[int]
+        self,
+        chat_id: int,
+        *,
+        round_number: int,
+        candidate_ids: list[int],
+        voting_ends_at: float,
     ) -> None:
-        """Persist runoff metadata and reset the votes hash."""
-        await self._redis.hset(
-            redis_keys.meta_key(chat_id),
-            mapping={
-                "status": GameStatus.VOTING.value,
-                "voting_round": str(round_number),
-                "vote_candidates": ",".join(str(i) for i in candidate_ids),
-            },
+        """Atomically open a runoff round: meta + deadline + clear votes.
+
+        A single Lua script updates voting_round, candidates, and
+        voting_ends_at and deletes the votes hash so a crash cannot leave
+        round 2 active with an expired round-1 deadline.
+        """
+        await self._start_runoff_script(
+            keys=[redis_keys.meta_key(chat_id), redis_keys.votes_key(chat_id)],
+            args=[
+                str(round_number),
+                ",".join(str(i) for i in candidate_ids),
+                repr(voting_ends_at),
+            ],
         )
-        await self.clear_votes(chat_id)
 
     async def list_active_chat_ids(self) -> list[int]:
         """Scan Redis for every chat that currently has a live game meta key."""

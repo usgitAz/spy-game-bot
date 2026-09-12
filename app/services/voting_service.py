@@ -182,9 +182,13 @@ async def _start_runoff(
     tied_players = [p for p in game.players if p.user_id in set(tied_ids)]
     names = ", ".join(user_mention(p.user_id, p.display_name) for p in tied_players)
 
-    await repo.set_vote_runoff(chat_id, round_number=2, candidate_ids=tied_ids)
     voting_ends = time.time() + get_settings().voting_timeout_seconds
-    await repo.set_voting_deadline(chat_id, voting_ends)
+    await repo.set_vote_runoff(
+        chat_id,
+        round_number=2,
+        candidate_ids=tied_ids,
+        voting_ends_at=voting_ends,
+    )
 
     try:
         await safe_send_message(

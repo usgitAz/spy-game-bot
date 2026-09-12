@@ -164,3 +164,18 @@ redis.call('HSET', KEYS[1], 'status', 'running')
 -- keep ends_at in the past so recovery retries open_voting
 return 1
 """
+
+
+# KEYS[1] = meta key, KEYS[2] = votes key
+# ARGV[1] = voting_round, ARGV[2] = candidate_ids csv, ARGV[3] = voting_ends_at
+# Atomically open runoff: round meta + deadline + clear votes.
+START_RUNOFF = """
+redis.call('HSET', KEYS[1],
+    'status', 'voting',
+    'voting_round', ARGV[1],
+    'vote_candidates', ARGV[2],
+    'voting_ends_at', ARGV[3]
+)
+redis.call('DEL', KEYS[2])
+return 1
+"""
